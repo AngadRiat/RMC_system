@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <title>Buyer Information</title>
+    <style>
+        body { 
+            background-color: #f8f9fa; 
+            font-family: 'Helvetica', sans-serif; 
+        }
+        .container { 
+            margin-top: 50px; 
+            max-width: 1000px;
+        }
+        .page-header { 
+            text-align: center; 
+            margin-bottom: 30px;
+        }
+        table { 
+            width: 100%; 
+            margin-top: 20px; 
+        }
+        th, td { 
+            text-align: left; 
+            padding: 10px; 
+        }
+        th { 
+            background-color: #3498db; 
+            color: white; 
+        }
+        tr:nth-child(even) { 
+            background-color: #f2f2f2; 
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .button-group button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .back-button { 
+            background-color: #3498db; 
+        }
+        .back-button:hover { 
+            background-color: #2980b9; 
+        }
+        .invoices-button { 
+            background-color: #27ae60; 
+        }
+        .invoices-button:hover { 
+            background-color: #219150; 
+        }
+        #search-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+    <script>
+        function searchBuyers() {
+            // Get the search input value
+            const searchInput = document.getElementById('search-input').value.toLowerCase();
+            
+            // Get all table rows except the header row
+            const rows = document.querySelectorAll('tbody tr');
+
+            // Loop through each row to filter
+            rows.forEach(row => {
+                // Get the buyer name and GST column values
+                const buyerName = row.querySelector('td:first-child')?.innerText.toLowerCase() || "";
+                const buyerGST = row.querySelector('td:nth-child(2)')?.innerText.toLowerCase() || "";
+
+                // Check if the search term matches the buyer name or GST
+                if (buyerName.includes(searchInput) || buyerGST.includes(searchInput)) {
+                    row.style.display = ""; // Show the row
+                } else {
+                    row.style.display = "none"; // Hide the row
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>Buyer Information</h1>
+        </div>
+
+        <!-- Search Input -->
+        <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Search by Buyer Name or GST..." 
+            oninput="searchBuyers()"
+        >
+
+        <div class="button-group">
+            <button class="back-button" onclick="window.location.href='/home'">Back to Home</button>
+            <button class="invoices-button" onclick="window.location.href='/view_invoices_new'">View Invoices</button>
+        </div>
+        <br>
+
+        <!-- Buyer Table -->
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Buyer Name</th>
+                    <th>Buyer GST</th>
+                    <th>Buyer Address</th>
+                    <th>Buyer Actions</th>
+                    <th>Delete Buyer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for buyer_id, buyer in buyers.items() %}
+                <tr>
+                    <td rowspan="{{ buyer.addresses|length }}">{{ buyer.buyer_name }}</td>
+                    <td rowspan="{{ buyer.addresses|length }}">{{ buyer.buyer_gst }}</td>
+                    <td>{{ buyer.addresses[0] }}</td>
+                    <td>
+                        {% if user_role == 'admin' %}
+                        <form action="/first_page_new" method="GET">
+                            <input type="hidden" name="buyer_id" value="{{ buyer_id }}">
+                            <input type="hidden" name="address_id" value="{{ buyer.address_id[0] }}">
+                            <button type="submit" class="btn btn-primary" style="margin-bottom: 10px;">Make Invoice</button>
+                        </form>
+                        <form action="{{ url_for('delete_address', address_id=buyer.address_id[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this address and all associated invoices?');">
+                            <button type="submit" class="btn btn-danger">Delete Address</button>
+                        </form>
+                        {% else %}
+                        <button disabled style="background-color: #ccc; cursor: not-allowed;" style="margin-bottom: 10px;">Make Invoice (Admin Only)</button>
+                        <button disabled style="background-color: #ccc; cursor: not-allowed;">Delete Address (Admin Only)</button>
+                        {% endif %}
+                    </td>
+                    <td rowspan="{{ buyer.addresses|length }}">
+                        {% if user_role == 'admin' %}
+                        <form action="{{ url_for('delete_buyer_new', buyer_id=buyer_id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this buyer and all associated invoices?');">
+                            <button type="submit" style="color: red;">Delete</button>
+                        </form>
+                        {% else %}
+                        <button disabled style="background-color: #ccc; cursor: not-allowed;">Delete (Admin Only)</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% for i in range(1, buyer.addresses|length) %}
+                <tr>
+                    <td>{{ buyer.addresses[i] }}</td>
+                    <td>
+                        {% if user_role == 'admin' %}
+                        <form action="/first_page_new" method="GET">
+                            <input type="hidden" name="buyer_id" value="{{ buyer_id }}">
+                            <input type="hidden" name="address_id" value="{{ buyer.address_id[i] }}">
+                            <button type="submit" class="btn btn-primary" style="margin-bottom: 10px;">Make Invoice</button>
+                        </form>
+                        <form action="{% if buyer.address_id %}{{ url_for('delete_address', address_id=buyer.address_id[0]) }}{% else %}#{% endif %}" 
+                        method="POST" style="display:inline;" 
+                        onsubmit="return confirm('Are you sure you want to delete this address and all associated invoices?');">
+                        <button type="submit" class="btn btn-danger" {% if not buyer.address_id %}disabled style="background-color: #ccc; cursor: not-allowed;"{% endif %}>
+                            Delete Address
+                        </button>
+                        </form>
+                        {% else %}
+                        <button disabled style="background-color: #ccc; cursor: not-allowed;" style="margin-bottom: 10px;">Make Invoice (Admin Only)</button>
+                        <button disabled style="background-color: #ccc; cursor: not-allowed;">Delete Address (Admin Only)</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

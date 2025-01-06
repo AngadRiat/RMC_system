@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Table</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        td {
+            text-align: center;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .invoice-details {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-row {
+            font-weight: bold;
+            background-color: #f2f2f2;
+        }
+
+        .search-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .search-container input {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            width: 200px;
+            max-width: 100%;
+        }
+
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .search-container button:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn-home {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-home-homepage {
+            background-color: #28a745; /* Green */
+        }
+
+        .btn-home-homepage:hover {
+            background-color: #218838; /* Darker Green */
+        }
+
+        .btn-home-buyer {
+            background-color: #17a2b8; /* Teal */
+        }
+
+        .btn-home-buyer:hover {
+            background-color: #117a8b; /* Darker Teal */
+        }
+
+        #detailsTable, #summaryTable {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            background-color: white;
+        }
+
+        #detailsTable th, #summaryTable th, #detailsTable td, #summaryTable td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        #detailsTable th, #summaryTable th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        #totalPrice, #taxAmount, #finalAmount {
+            font-weight: bold;
+        }
+
+        #buyerInfo p {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+
+        #buyerInfo {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Existing Invoices</h2>
+
+<!-- Search Container -->
+<div class="search-container">
+    <input type="text" id="searchInvoiceID" placeholder="Search by Invoice ID">
+    <input type="text" id="searchBuyerName" placeholder="Search by Buyer Name">
+    
+    <!-- Date filter inputs -->
+    <input type="date" id="fromDate" placeholder="From Date">
+    <input type="date" id="toDate" placeholder="To Date">
+
+    <button onclick="searchInvoices()">Search</button>
+    <button onclick="clearSearch()">Show All Invoices (Clear)</button> <!-- Clear Button -->
+</div>
+
+<div class="btn-container">
+    <form action="/home" method="GET" style="display:inline;">
+        <button type="submit" class="btn-home btn-home-homepage" style="margin-right: 20px;">Go Back to Home Page</button>
+    </form>
+    <form action="/buyer_table_new" method="GET" style="display:inline;">
+        <button type="submit" class="btn-home btn-home-buyer" style="margin-right: 20px;">Go to Buyer Table</button>
+    </form>
+    <form action="/export_invoices_csv" method="GET" style="display:inline;">
+        <button type="submit" class="btn-home btn-home-homepage">Export Invoices to CSV</button>
+    </form>
+</div>
+<br>
+
+<table id="invoiceTable">
+    <tr>
+        <th>Invoice ID</th>
+        <th>Buyer Name</th>
+        <th>Invoice Date</th>
+        <th>PO Details</th>
+        <th>GSTIN</th>
+        <th>Dispatch</th>
+        <th>Total Price (without GST in Rs.)</th>
+        <th>Final Amount (in Rs.)</th>
+        <th>View</th>
+        <th>Edit</th>
+        <th> Delete invoice </th>
+    </tr>
+
+    <!-- Dynamically populate invoice rows -->
+    {% for invoice in invoice_data %}
+    <tr>
+        <td>{{ invoice.invoiceID }}</td>
+        <td>{{ invoice.buyerName }}</td>
+        <td class="invoice-date">{{ invoice.invoiceDate }}</td> <!-- Updated for date format -->
+        <td>{{ invoice.poDetails }}</td>
+        <td>{{ invoice.gstin }}</td>
+        <td>{{ invoice.dispatch }}</td>
+        <td><b>{{ format_indian_currency(invoice.totalPrice) }}</b></td>
+        <td><b>{{ format_indian_currency(invoice.finalAmount) }}</b></td>
+        <td>
+            <button onclick="showInvoiceDetails('{{ invoice.invoiceID }}')" style="margin-bottom: 10px;">View Invoice</button>
+            <form action="{{ url_for('view_pdf_new', invoice_id=invoice.invoiceID.replace('/', '-')) }}" method="GET" target="_blank" style="display:inline;">
+                <button type="submit">View PDF</button>
+            </form>
+        </td>
+        <td>
+            <a href="{{ url_for('edit_invoice_new', invoice_id=invoice.invoiceID.replace('/', '-')) }}">Edit</a>
+        </td>
+        <td>
+            {% if user_role == 'admin' %}
+            <form action="{{ url_for('delete_invoice_new', invoice_id=invoice.invoiceID.replace('/', '-')) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this invoice?');">
+                <button type="submit" style="color: red;">Delete</button>
+            </form>
+            {% else %}
+            <form>
+                <button disabled style="background-color: #ccc; cursor: not-allowed;">Delete (Admin Only)</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    <tfoot>
+        <!-- Add the summary row in a `tfoot` section to keep it outside the searchable rows -->
+        <tr class="summary-row">
+            <td colspan="6">Total:</td>
+            <td id="totalPriceSummary">0</td>
+            <td id="finalAmountSummary">0</td>
+            <td colspan="3"></td>
+        </tr>
+    </tfoot>
+</table>
+
+<div id="details" class="invoice-details">
+    <h2>Invoice Details</h2>
+
+    <div id="buyerInfo" style="display: none;">
+        <p><strong>Invoice Date:</strong> <span id="invoiceDate"></span></p>
+        <p><strong>Buyer Name:</strong> <span id="buyerName"></span></p>
+        <p><strong>Buyer Address:</strong> <span id="buyerAddress"></span></p>
+        <p><strong>GSTIN:</strong> <span id="buyerGstin"></span></p>
+        <p><strong>Consignee:</strong> <span id="consigneeDetails"></span></p>
+        <p><strong>Dispatch:</strong> <span id="dispatchDetails"></span></p>
+        <p><strong>PO Number:</strong> <span id="poNumber"></span></p>
+    </div>
+    
+    <!-- Button to view all invoice items -->
+    <button onclick="showAllItems()">View All Invoice Items</button>
+    <br> <br>
+    <button onclick="hideInvoiceDetails()">Hide Invoice Details</button>
+    <br> <br>
+
+    <table id="detailsTable">
+        <tr>
+            <th>Item ID</th>
+            <th>Invoice ID</th>
+            <th>Description</th>
+            <th>HSN Code</th>
+            <th>Quantity</th>
+            <th>Rate</th>
+            <th>Price</th>
+        </tr>
+    </table>
+
+    <!-- Total Price, 18% Tax, and Final Amount rows -->
+    <table id="summaryTable">
+        <tr id="totalPriceRow" class="summary-row">
+            <td colspan="6">Total Price:</td>
+            <td id="totalPrice">0</td>
+        </tr>
+        <tr id="taxRow" class="summary-row">
+            <td colspan="6">Tax (18%):</td>
+            <td id="taxAmount">0</td>
+        </tr>
+        <tr id="finalAmountRow" class="summary-row">
+            <td colspan="6">Final Amount:</td>
+            <td id="finalAmount">0</td>
+        </tr>
+    </table>
+</div>
+
+<script>
+    const invoices = {{ invoice_data | tojson }};
+
+    function sortInvoicesByIDDescending() {
+        const table = document.getElementById('invoiceTable');
+        const rows = Array.from(table.querySelectorAll('tr:not(:first-child)'));
+
+        rows.sort((rowA, rowB) => {
+            const invoiceIDA = rowA.cells[0].innerText;
+            const invoiceIDB = rowB.cells[0].innerText;
+            return invoiceIDB.localeCompare(invoiceIDA);
+        });
+
+        rows.forEach(row => table.appendChild(row));
+    }
+
+    sortInvoicesByIDDescending();
+
+    function formatIndianCurrency(num) {
+        const [integer, decimal] = num.toFixed(2).split('.');
+        let lastThree = integer.slice(-3);
+        let otherNumbers = integer.slice(0, -3);
+
+        if (otherNumbers !== '') {
+            lastThree = ',' + lastThree;
+        }
+
+        return otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + lastThree + '.' + decimal;
+    }
+
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split('.');
+        return new Date(year, month - 1, day);
+    }
+
+    function formatDate(dateStr) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}.${month}.${year}`;
+    }
+
+    function searchInvoices() {
+        const searchInvoiceID = document.getElementById('searchInvoiceID').value.trim().toLowerCase();
+        const searchBuyerName = document.getElementById('searchBuyerName').value.trim().toLowerCase();
+        const fromDate = parseDate(document.getElementById('fromDate').value.split('-').reverse().join('.'));
+        const toDate = parseDate(document.getElementById('toDate').value.split('-').reverse().join('.'));
+
+        const rows = document.querySelectorAll('#invoiceTable tr:not(:first-child)');
+
+        rows.forEach(row => {
+            const invoiceID = row.cells[0].innerText.trim().toLowerCase();
+            const buyerName = row.cells[1].innerText.trim().toLowerCase();
+            const invoiceDateStr = row.cells[2].innerText;
+            const invoiceDate = parseDate(invoiceDateStr);
+
+            const matchesInvoiceID = searchInvoiceID === '' || invoiceID.includes(searchInvoiceID);
+            const matchesBuyerName = searchBuyerName === '' || buyerName.includes(searchBuyerName);
+            const matchesDateRange = isDateWithinRange(invoiceDate, fromDate, toDate);
+
+            row.style.display = matchesInvoiceID && matchesBuyerName && matchesDateRange ? '' : 'none';
+        });
+        calculateInvoiceTotals();
+    }
+
+    function isDateWithinRange(invoiceDate, fromDate, toDate) {
+        if (!invoiceDate) return false;
+
+        if (fromDate && toDate) {
+            return invoiceDate >= fromDate && invoiceDate <= toDate;
+        } else if (fromDate) {
+            return invoiceDate >= fromDate;
+        } else if (toDate) {
+            return invoiceDate <= toDate;
+        }
+        return true;
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInvoiceID').value = '';
+        document.getElementById('searchBuyerName').value = '';
+        document.getElementById('fromDate').value = '';
+        document.getElementById('toDate').value = '';
+
+        document.querySelectorAll('#invoiceTable tr:not(:first-child)').forEach(row => {
+            row.style.display = '';
+        });
+        calculateInvoiceTotals();
+    }
+
+    function calculateSummary(items) {
+        let totalPrice = 0;
+
+        items.forEach(item => {
+            totalPrice += parseFloat(item.price);
+        });
+
+        const tax = totalPrice * 0.18;
+        const finalAmount = totalPrice + tax;
+
+        document.getElementById('totalPrice').innerText = formatIndianCurrency(totalPrice);
+        document.getElementById('taxAmount').innerText = formatIndianCurrency(tax);
+        document.getElementById('finalAmount').innerText = formatIndianCurrency(finalAmount);
+    }
+
+    function showInvoiceDetails(invoiceID) {
+        const invoice = invoices.find(inv => inv.invoiceID === invoiceID);
+        if (!invoice) return;
+
+        const rows = document.querySelectorAll('#invoiceTable tr:not(:first-child)');
+        rows.forEach(row => {
+            const rowInvoiceID = row.cells[0].innerText;
+            row.style.display = rowInvoiceID === invoiceID ? '' : 'none';
+        });
+
+        document.getElementById('buyerInfo').style.display = 'block';
+        document.getElementById('invoiceDate').innerText = formatDate(invoice.invoiceDate);
+        document.getElementById('buyerName').innerText = invoice.buyerName;
+        document.getElementById('buyerAddress').innerText = invoice.buyerAddress;
+        document.getElementById('buyerGstin').innerText = invoice.gstin;
+        document.getElementById('consigneeDetails').innerText = invoice.consignee;
+        document.getElementById('dispatchDetails').innerText = invoice.dispatch;
+        document.getElementById('poNumber').innerText = invoice.poDetails;
+
+        document.getElementById('detailsTable').innerHTML = `
+            <tr>
+                <th>Item ID</th>
+                <th>Invoice ID</th>
+                <th>Description</th>
+                <th>HSN Code</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Price</th>
+            </tr>
+            ${invoice.items.map(item => `
+                <tr>
+                    <td>${item.itemID}</td>
+                    <td>${invoice.invoiceID}</td>
+                    <td>${item.description}</td>
+                    <td>${item.hsnCode}</td>
+                    <td>${item.quantity}</td>
+                    <td>${formatIndianCurrency(item.rate)}</td>
+                    <td>${formatIndianCurrency(item.price)}</td>
+                </tr>
+            `).join('')}
+        `;
+
+        calculateSummary(invoice.items);
+        document.getElementById('details').style.display = 'block';
+        document.getElementById('showAllInvoicesContainer').style.display = 'block';
+        document.getElementById('summary-row').style.display = 'none';
+    }
+
+    function showAllItems() {
+        let allItemsHTML = `
+            <tr>
+                <th>Item ID</th>
+                <th>Invoice ID</th>
+                <th>Description</th>
+                <th>HSN Code</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Price</th>
+            </tr>
+        `;
+    
+        let allItems = [];
+
+        invoices.forEach(invoice => {
+            allItemsHTML += invoice.items.map(item => `
+                <tr>
+                    <td>${item.itemID}</td>
+                    <td>${invoice.invoiceID}</td>
+                    <td>${item.description}</td>
+                    <td>${item.hsnCode}</td>
+                    <td>${item.quantity}</td>
+                    <td>${formatIndianCurrency(item.rate)}</td>
+                    <td>${formatIndianCurrency(item.price)}</td>
+                </tr>
+            `).join('');
+
+            allItems = allItems.concat(invoice.items);
+        });
+
+        document.getElementById('detailsTable').innerHTML = allItemsHTML;
+        document.getElementById('details').style.display = 'block';
+        calculateSummary(allItems);
+    }
+
+    function showAllInvoices() {
+        const rows = document.querySelectorAll('#invoiceTable tr:not(:first-child)');
+        rows.forEach(row => row.style.display = '');
+
+        document.getElementById('details').style.display = 'none';
+        document.getElementById('showAllInvoicesContainer').style.display = 'none';
+        document.getElementById('summary-row').style.display = 'table-row';
+    }
+
+    function hideInvoiceDetails() {
+        document.getElementById('details').style.display = 'none';
+    }
+
+    function calculateInvoiceTotals() {
+        let totalPriceSum = 0;
+        let finalAmountSum = 0;
+
+        const rows = document.querySelectorAll('#invoiceTable tr:not(:first-child, #summaryRow)');
+
+        rows.forEach(row => {
+            if (row.style.display !== 'none') { // Only include visible rows
+                const totalPriceCell = row.cells[6];
+                const finalAmountCell = row.cells[7];
+
+                if (totalPriceCell && finalAmountCell) {
+                    const totalPrice = parseFloat(totalPriceCell.innerText.replace(/,/g, '')) || 0;
+                    const finalAmount = parseFloat(finalAmountCell.innerText.replace(/,/g, '')) || 0;
+
+                    totalPriceSum += totalPrice;
+                    finalAmountSum += finalAmount;
+                }
+            }
+        });
+
+        document.getElementById('totalPriceSummary').innerText = formatIndianCurrency(totalPriceSum);
+        document.getElementById('finalAmountSummary').innerText = formatIndianCurrency(finalAmountSum);
+    }
+
+    calculateInvoiceTotals();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Form Input 2</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css">
+
+    <!-- jQuery and Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f4f4f9;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+
+        .page-header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-control {
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            border-radius: 5px;
+            padding: 10px 20px;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+            border-radius: 5px;
+            padding: 10px 20px;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+            border-color: #218838;
+        }
+
+        .price-display {
+            font-size: 1.25em;
+            font-weight: bold;
+            color: #28a745;
+            margin-top: 5px;
+            padding: 5px 0;
+            border-bottom: 1px solid #ccc;
+        }
+
+        h3 {
+            margin-top: 20px;
+            color: #007bff;
+            border-bottom: 2px solid #f4f4f9;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-container {
+            margin-top: 20px;
+        }
+
+        input.form-control[type="number"],
+        input.form-control[type="text"],
+        textarea.form-control {
+            padding: 10px;
+            font-size: 1.1em;
+        }
+
+        /* Style for the custom "Other" input */
+        .hidden {
+            display: none;
+        }
+
+        .col-md-4, .col-md-2 {
+            padding-top: 10px;
+        }
+    </style>
+
+    <script>
+        function generateFields() {
+            const noOfItems = document.getElementById("n_items").value;
+            const formContainer = document.getElementById("formContainer");
+            formContainer.innerHTML = '';
+
+            for (let i = 1; i <= noOfItems; i++) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'form-group';
+
+                itemDiv.innerHTML = `
+                    <h3>Item ${i}</h3>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="description${i}">Description:</label>
+                            <select class="form-control" id="description${i}" name="description${i}" onchange="showOtherDescription(${i})" required>
+                                <option value="" disabled selected>Select Item</option>
+                                <option value="2” x 2” Helical gear pump">2” x 2” Helical gear pump</option>
+                                <option value="3” X 3” Helical gear pump with external bearing support">3” X 3” Helical gear pump with external bearing support</option>
+                                <option value="3” x 3” All bearing rotary gear pump">3” x 3” All bearing rotary gear pump</option>
+                                <option value="4” X 4” Light duty helical gear pump with external bearing support">4” X 4” Light duty helical gear pump with external bearing support</option>
+                                <option value="4” X 4” Heavy duty helical gear pump with external bearing support">4” X 4” Heavy duty helical gear pump with external bearing support</option>
+                                <option value="4” X 4” Rotary gear pump">4” X 4” Rotary gear pump</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <textarea class="form-control hidden" id="otherDescription${i}" name="otherDescription${i}" rows="3" placeholder="Enter custom description"></textarea>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="hsnCode${i}">HSN Code:</label>
+                            <input type="text" class="form-control" id="hsnCode${i}" name="hsnCode${i}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="qty${i}">Qty:</label>
+                            <input type="number" class="form-control" id="qty${i}" name="qty${i}" min="0" oninput="calculatePrice(${i})" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="rate${i}">Rate:</label>
+                            <input type="number" class="form-control" id="rate${i}" name="rate${i}" min="0" oninput="calculatePrice(${i})" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="price${i}">Price:</label>
+                            <div id="price${i}" class="price-display">0.00</div>
+                        </div>
+                    </div>
+                    <br>
+                `;
+
+                formContainer.appendChild(itemDiv);
+            }
+
+            let submitButton = document.getElementById('submitButton');
+            if (!submitButton) {
+                submitButton = document.createElement('button');
+                submitButton.id = 'submitButton';
+                submitButton.type = 'submit';
+                submitButton.className = 'btn btn-primary';
+                submitButton.innerText = 'Submit All Items';
+                formContainer.appendChild(submitButton);
+            }
+        }
+
+        function showOtherDescription(itemNumber) {
+            const descriptionSelect = document.getElementById(`description${itemNumber}`);
+            const descriptionValue = descriptionSelect.value;
+            const otherDescriptionInput = document.getElementById(`otherDescription${itemNumber}`);
+
+            // Clear existing 'name' attributes to avoid duplicate data in submission
+            descriptionSelect.removeAttribute("name");
+            otherDescriptionInput.removeAttribute("name");
+
+            if (descriptionValue === 'Other') {
+                otherDescriptionInput.classList.remove('hidden');
+                otherDescriptionInput.required = true;
+                // Assign the name attribute to the textarea for 'Other'
+                otherDescriptionInput.setAttribute("name", `description${itemNumber}`);
+            } else {
+                otherDescriptionInput.classList.add('hidden');
+                otherDescriptionInput.required = false;
+                // Assign the name attribute to the select for standard options
+                descriptionSelect.setAttribute("name", `description${itemNumber}`);
+            }
+        }
+
+        function calculatePrice(itemNumber) {
+            const qty = document.getElementById(`qty${itemNumber}`).value;
+            const rate = document.getElementById(`rate${itemNumber}`).value;
+            let price = qty * rate;
+
+            const formattedPrice = price ? indianFormat(price.toFixed(2)) : '0.00';
+            document.getElementById(`price${itemNumber}`).innerText = formattedPrice;
+        }
+
+        function indianFormat(num) {
+            const parts = num.toString().split('.');
+            const intPart = parts[0];
+            const decPart = parts.length > 1 ? '.' + parts[1] : '';
+            const lastThree = intPart.slice(-3);
+            const otherNumbers = intPart.slice(0, -3);
+            const formattedInt = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree;
+            return formattedInt + decPart;
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header text-center">
+            <h1>Form Input 2</h1>
+        </div>
+
+        <form id="mainForm" action="/third_page_new" method="POST">
+            <div class="row">
+                <div class="col-lg-6 col-lg-offset-3 text-center">
+                    <div class="form-group">
+                        <label for="n_items">No of items</label>
+                        <input type="number" class="form-control" id="n_items" name="n_items" placeholder="Enter No of Items" min="1" max="10" step="1" required>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="generateFields()">Generate Form</button>
+                </div>
+            </div>
+
+            <div id="formContainer"></div>
+        </form>
+    </div>
+</body>
+</html>

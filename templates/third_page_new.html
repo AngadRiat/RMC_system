@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Summary</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        /* Set fixed widths for the columns */
+        th.sl_no, td.sl_no {
+            width: 5%;
+        }
+        th.description, td.description {
+            width: 35%;
+        }
+        th.hsn_code, td.hsn_code {
+            width: 10%;
+        }
+        th.qty, td.qty {
+            width: 10%;
+        }
+        th.rate, td.rate {
+            width: 20%;
+        }
+        th.amount, td.amount {
+            width: 20%;
+            text-align: right; /* Align currency values to the right */
+        }
+        /* Adjust the footer to span the appropriate number of columns */
+        tfoot td {
+            font-weight: bold;
+            text-align: right;
+        }
+        tfoot td.total {
+            text-align: left;
+        }
+        /* Button styles */
+        .btn-container {
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-warning {
+            background-color: #f0ad4e;
+        }
+        .btn-home {
+            background-color: #5bc0de;
+        }
+        .btn-container form {
+            display: inline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Invoice Summary</h1>
+
+    <!-- Invoice Details Section -->
+    <h3>Invoice Details</h3>
+    <p><strong>Invoice No:</strong> {{ invoice_id }}</p>
+    <p><strong>Date:</strong> {{ invoice_date }}</p>
+    <p><strong>Buyer Name:</strong> {{ buyer_name }}</p>
+    <p><strong>Buyer Address:</strong> {{ buyer_address }}</p>
+    <p><strong>Buyer GSTIN:</strong> {{ buyer_gst }}</p>
+    <p><strong>Consignee Details:</strong> {{ consignee }}</p>
+    <p><strong>PO Number:</strong> {{ po_details }}</p>
+    <p><strong>Dispatch Details:</strong> {{ dispatch_details }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="sl_no">Sl. No.</th>
+                <th class="description">Description</th>
+                <th class="hsn_code">HSN Code</th>
+                <th class="qty">Qty</th>
+                <th class="rate">Rate</th>
+                <th class="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for idx, item in items %}
+            <tr>
+                <td class="sl_no">{{ idx }}</td>
+                <td class="description">{{ item['description'] }}</td>
+                <td class="hsn_code">{{ item['hsnCode'] }}</td>
+                <td class="qty">{{ item['qty'] }}</td>
+                <td class="rate">{{ "{:,.2f}".format(item['rate']) }}</td>
+                <td class="amount">{{ "{:,.2f}".format(item['price']) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" class="total">Total Price</td>
+                <td class="amount">{{ "{:,.2f}".format(total_price) }}</td>
+            </tr>
+            <tr>
+                <td colspan="5" class="total">CGST (9%)</td>
+                <td class="amount">{{ "{:,.2f}".format(cgst) }}</td>
+            </tr>
+            <tr>
+                <td colspan="5" class="total">SGST (9%)</td>
+                <td class="amount">{{ "{:,.2f}".format(sgst) }}</td>
+            </tr>
+            {% if igst %}
+            <tr>
+                <td colspan="5" class="total">IGST (18%)</td>
+                <td class="amount">{{ "{:,.2f}".format(igst) }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td colspan="5" class="total">Final Invoice Amount</td>
+                <td class="amount">{{ "{:,.2f}".format(final_amount | default(0)) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="btn-container">
+        <!-- Button for submitting the invoice -->
+        <form action="/submit_invoice_new" method="POST" style="display:inline;">
+            <button type="submit" class="btn">Submit Invoice</button>
+        </form>
+
+        <!-- Button for editing first page -->
+        <form action="/edit_first_invoice_new" method="get">
+            <button type="submit" class="btn btn-warning">Edit Invoice Details</button>
+        </form> 
+
+        <!-- Button for going back to the homepage -->
+        <form action="/home" method="GET" style="display:inline;">
+            <button type="submit" class="btn btn-home">Go Back to Home Page</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <title>Form Input</title>
+        <style>
+            /* General styling */
+            body {
+                background-color: #f5f5f5;
+                font-family: Arial, sans-serif;
+                color: #333;
+            }
+            .container {
+                background-color: #ffffff;
+                padding: 20px;
+                margin-top: 40px;
+                border-radius: 10px;
+                box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.1);
+            }
+            .page-header h1 {
+                color: #007bff;
+                font-weight: 700;
+                text-align: center;
+            }
+            .form-group label {
+                font-weight: bold;
+                color: #555;
+            }
+            .form-control {
+                border-radius: 5px;
+                padding: 10px; /* Adjust padding to fit text comfortably */
+                min-height: 40px; /* Ensures minimum height for inputs and dropdowns */
+                line-height: 1.5; /* Line height adjustment for better text visibility */
+                box-sizing: border-box; /* Ensures padding doesn’t affect element’s height */
+            }
+            .btn-primary, .btn-info {
+                border-radius: 5px;
+                padding: 10px 20px;
+                font-weight: bold;
+                font-size: 16px;
+            }
+            .alert {
+                font-weight: bold;
+                border-radius: 5px;
+                margin-top: 10px;
+            }
+            @media (min-width: 768px) {
+                .col-lg-5, .col-lg-7 {
+                    padding-right: 20px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="page-header">
+                <h1>Form Input 1</h1>
+            </div>
+            <br>
+            <div class="row">
+                <form name="input" action="second_page_new" method="post" id="invoiceForm">
+                    <div class="col-lg-5">
+                        <div class="form-group">
+                            <label for="year">Financial Year</label>
+                            <select class="form-control" id="year" name="year" required>
+                                {% for y in ['24 - 25', '23 - 24', '22 - 23', '21 - 22', '20 - 21', '19 - 20'] %}
+                                    <option value="{{ y }}" {% if session.get('year') == y %} selected {% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_no">Invoice No.</label>
+                            <input type="number" class="form-control" id="inv_no" name="inv_no" placeholder="Enter Invoice Number (3 digit)" value="{{ session.get('inv_no', '') }}" min="000" max="999" required>
+                            {% if error %}
+                                <div class="alert alert-danger" role="alert">
+                                    {{ error }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label for="date">Invoice Date</label>
+                            <input type="date" class="form-control" id="date" name="date" value="{{ session.get('date', '') }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="po">P.O. Number and Date</label>
+                            <textarea class="form-control" id="po" name="po" rows="3" placeholder="Enter PO Number, Date">{{ session.get('po', '') }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="d_by">Dispatched By</label>
+                            <input type="text" class="form-control" id="d_by" name="d_by" value="{{ session.get('Dispatch', '') }}" placeholder="Dispatched By">
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="form-group">
+                            <label for="b_name">Buyer Name</label>
+                            <input type="text" class="form-control" id="b_name" name="b_name" placeholder="Enter Buyer Name" required value="{{ buyer_info['buyer_name'] if buyer_info else '' }}">
+                            <button type="button" class="btn btn-info" id="checkBuyerBtn">Check Buyer</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="b_gst">Buyer GSTIN</label>
+                            <input type="text" class="form-control" id="b_gst" name="b_gst" placeholder="Enter Buyer GSTIN" required value="{{ buyer_info['buyer_gst'] if buyer_info else '' }}">
+                        </div>
+                        <div class="form-group" id="address-group" style="display: none;">
+                            <label for="addressDropdown">Select Buyer Address</label>
+                            <select class="form-control" id="addressDropdown" name="addressDropdown" onchange="document.getElementById('b_address').value = this.value">
+                                {% for address in buyer_addresses %}
+                                    <option value="{{ address['address'] }}" {% if selected_address == address['address'] %} selected {% endif %}>
+                                        {{ address['address'] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="b_address">Buyer Address</label>
+                            <textarea class="form-control" id="b_address" name="b_address" placeholder="Enter Buyer Address" rows="3" required>{{ selected_address if selected_address else '' }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="c_details">Consignee Details</label>
+                            <textarea class="form-control" id="c_details" name="c_details" placeholder="Enter Consignee Details" rows="3" required>{{ session.get('Consignee', '') }}</textarea>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="col-lg-12 text-center">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('checkBuyerBtn').addEventListener('click', function() {
+                const buyerName = document.getElementById('b_name').value;
+                if (!buyerName) {
+                    alert("Please enter a buyer name first.");
+                    return;
+                }
+        
+                $.ajax({
+                    url: '/check_buyer',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ 'buyer_name': buyerName }),
+                    success: function(response) {
+                        if (response.exists) {
+                            document.getElementById('b_gst').value = response.buyer_gst;
+        
+                            const addressGroup = document.getElementById('address-group');
+                            const addressDropdown = document.getElementById('addressDropdown');
+                            const buyerAddressField = document.getElementById('b_address');
+                            
+                            addressDropdown.innerHTML = '';
+                            if (response.addresses.length > 1) {
+                                addressGroup.style.display = 'block';
+                                alert("Multiple addresses found in the database.");
+                                response.addresses.forEach(addr => {
+                                    let option = document.createElement('option');
+                                    option.value = addr;
+                                    option.textContent = addr;
+                                    addressDropdown.appendChild(option);
+                                });
+                                buyerAddressField.value = response.addresses[0];
+                            } else if (response.addresses.length === 1) {
+                                addressGroup.style.display = 'none';
+                                buyerAddressField.value = response.addresses[0];
+                            } else {
+                                alert("No addresses found for this buyer.");
+                            }
+                        } else {
+                            alert("Buyer not found in the database.");
+                            document.getElementById('b_address').value = "";
+                            document.getElementById('b_gst').value = "";
+                        }
+                    },
+                    error: function() {
+                        alert("Error checking buyer details.");
+                    }
+                });
+            });
+        
+            document.getElementById('invoiceForm').addEventListener('submit', function(event) {
+                const addressField = document.getElementById('b_address').value.toLowerCase();
+                const indianStates = [
+                "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh",
+                "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka",
+                "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
+                "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim",
+                "tamil nadu", "telangana", "tripura", "uttar pradesh", "uttarakhand",
+                "west bengal","delhi"
+                ];
+        
+                const isValidAddress = indianStates.some(state => addressField.includes(state));
+                if (!isValidAddress) {
+                    event.preventDefault();
+                    alert("Address must include a valid Indian state.");
+                }
+            });
+        </script>
+    </body>
+</html>

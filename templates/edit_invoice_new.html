@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Invoice {{ invoice.invoice_id }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            color: #333;
+        }
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        div.form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="text"], input[type="date"], input[type="number"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            max-height: 200px;
+            font-family: Arial, sans-serif; /* Matches the font style of input fields */
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        h3 {
+            color: #444;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+    </style>
+    <script>
+        function updatePrice(itemId) {
+            let qty = document.getElementById('quantity_' + itemId).value;
+            let rate = document.getElementById('rate_' + itemId).value;
+            let price = qty * rate;
+            document.getElementById('price_' + itemId).value = price.toFixed(2);
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            let totalPrice = 0;
+            document.querySelectorAll('input[id^="price_"]').forEach(function(priceInput) {
+                totalPrice += parseFloat(priceInput.value) || 0;
+            });
+            document.getElementById('total_price').value = totalPrice.toFixed(2);
+            document.getElementById('final_amount').value = (totalPrice * 1.18).toFixed(2);  // Assuming GST of 18%
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // Recalculate prices and totals on page load
+            document.querySelectorAll('input[id^="quantity_"], input[id^="rate_"]').forEach(function(input) {
+                input.addEventListener('input', function() {
+                    const itemId = this.id.split('_')[1];
+                    updatePrice(itemId);
+                });
+            });
+
+            calculateTotal();
+        });
+    </script>
+</head>
+<body>
+
+<h2>Edit Invoice: {{ invoice.invoice_id }}</h2>
+
+<form method="POST">
+    <!-- Invoice Details -->
+    <div class="form-group">
+        <label for="buyer_name">Buyer Name:</label>
+        <input type="text" id="buyer_name" name="buyer_name" value="{{ invoice['buyer_name'] }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="invoice_date">Invoice Date:</label>
+        <input type="date" id="invoice_date" name="invoice_date" value="{{ invoice['invoice_date'] }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="po_details">PO Details (Optional):</label>
+        <textarea id="po_details" name="po_details">{{ invoice['po_details'] }}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="buyer_address">Buyer Address</label>
+        <textarea id="buyer_address" name="buyer_address">{{ invoice['address'] }}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="buyer_gst">Buyer GSTIN</label>
+        <input type="text" id="buyer_gst" name="buyer_gst" value="{{ invoice['buyer_gst'] }}">
+    </div>
+
+    <div class="form-group">
+        <label for="consignee_details">Consignee Details</label>
+        <textarea id="consignee_details" name="consignee_details">{{ invoice['consignee_details'] }}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="dispatch">Dispatch (Optional)</label>
+        <input type="text" id="dispatch" name="dispatch" value="{{ invoice['dispatch'] }}">
+    </div>
+
+    <!-- Invoice Items -->
+    <h3>Invoice Items</h3>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>HSN Code</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice_items %}
+            <tr>
+                <td>
+                    <textarea id="description_{{ item['item_id'] }}" name="description_{{ item['item_id'] }}" rows="3" cols="20" required>{{ item['description'] }}</textarea>
+                </td>
+                <td>
+                    <input type="text" id="hsnCode_{{ item['item_id'] }}" name="hsnCode_{{ item['item_id'] }}" value="{{ item['hsn_code'] }}" required>
+                </td>
+                <td>
+                    <input type="number" id="quantity_{{ item['item_id'] }}" name="quantity_{{ item['item_id'] }}" value="{{ item['quantity'] }}" required>
+                </td>
+                <td>
+                    <input type="number" id="rate_{{ item['item_id'] }}" name="rate_{{ item['item_id'] }}" value="{{ item['rate'] }}" step="0.01" required>
+                </td>
+                <td>
+                    <input type="text" id="price_{{ item['item_id'] }}" name="price_{{ item['item_id'] }}" value="{{ item['quantity'] * item['rate'] }}" readonly>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="form-group">
+        <label for="total_price">Total Price:</label>
+        <input type="number" id="total_price" name="total_price" readonly>
+    </div>
+
+    <div class="form-group">
+        <label for="final_amount">Final Amount (Including GST):</label>
+        <input type="number" id="final_amount" name="final_amount" readonly>
+    </div>
+
+    <!-- Submit Button -->
+    <button type="submit">Update Invoice</button>
+</form>
+
+</body>
+</html>
