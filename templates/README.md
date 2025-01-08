@@ -1,0 +1,1 @@
+All the HTML pages are stored in this directory
