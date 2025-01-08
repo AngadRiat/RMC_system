@@ -68,7 +68,6 @@ def extract_state_from_address(address):
 def replace_slash_with_hyphen(invoice_id):
     # Split the string by '/'
     parts = invoice_id.split('/')
-    
     return (parts[0]+"/"+parts[1]+"-"+parts[2]+"/"+parts[3])
 
 # Function to connect to the database
@@ -966,27 +965,32 @@ def delete_buyer_new(buyer_id):
 @role_required('admin')
 def check_buyer():
     data = request.get_json()
-    buyer_name = data.get('buyer_name')
-    
-    conn = get_db_connection()
-    # Fetch buyer_id, GST, and associated addresses
-    buyer = conn.execute('SELECT buyer_id, buyer_gst FROM buyer_info WHERE buyer_name = ?', (buyer_name,)).fetchone()
-    
-    if buyer:
-        buyer_id = buyer['buyer_id']
-        buyer_gst = buyer['buyer_gst']
-        # Fetch all addresses associated with the buyer_id
-        addresses = conn.execute('SELECT address FROM buyer_addresses WHERE buyer_id = ?', (buyer_id,)).fetchall()
-        conn.close()
+    buyer_name = data.get('buyer_name', '').strip()
 
-        # Convert the list of addresses to a simpler format for JSON response
-        address_list = [address['address'] for address in addresses]
-        
-        return jsonify({
-            'exists': True,
-            'buyer_gst': buyer_gst,
-            'addresses': address_list
-        })
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Perform a case-insensitive search for buyer names matching the input string
+    query = "SELECT buyer_id, buyer_name, buyer_gst FROM buyer_info WHERE buyer_name LIKE ?"
+    results = cursor.execute(query, (f"%{buyer_name}%",)).fetchall()
+
+    if results:
+        buyers = []
+        for buyer in results:
+            buyer_id, buyer_name, buyer_gst = buyer
+            # Fetch all addresses for each buyer
+            addresses_query = "SELECT address FROM buyer_addresses WHERE buyer_id = ?"
+            addresses = cursor.execute(addresses_query, (buyer_id,)).fetchall()
+            address_list = [addr['address'] for addr in addresses]
+
+            buyers.append({
+                'buyer_id': buyer_id,
+                'buyer_name': buyer_name,
+                'buyer_gst': buyer_gst,
+                'addresses': address_list
+            })
+        conn.close()
+        return jsonify({'exists': True, 'buyers': buyers})
     else:
         conn.close()
         return jsonify({'exists': False})

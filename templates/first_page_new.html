@@ -134,55 +134,120 @@
         </div>
         
         <script>
-            document.getElementById('checkBuyerBtn').addEventListener('click', function() {
-                const buyerName = document.getElementById('b_name').value;
+            document.getElementById('checkBuyerBtn').addEventListener('click', function () {
+                const buyerName = document.getElementById('b_name').value.trim();
                 if (!buyerName) {
                     alert("Please enter a buyer name first.");
                     return;
                 }
-        
+            
+                // Remove any existing dropdowns before creating new ones
+                const existingBuyerDropdown = document.getElementById('buyerDropdown');
+                if (existingBuyerDropdown) {
+                    existingBuyerDropdown.remove();
+                }
+            
+                const existingAddressDropdown = document.getElementById('addressDropdown');
+                if (existingAddressDropdown) {
+                    existingAddressDropdown.remove();
+                }
+            
                 $.ajax({
                     url: '/check_buyer',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ 'buyer_name': buyerName }),
-                    success: function(response) {
+                    success: function (response) {
                         if (response.exists) {
-                            document.getElementById('b_gst').value = response.buyer_gst;
-        
-                            const addressGroup = document.getElementById('address-group');
-                            const addressDropdown = document.getElementById('addressDropdown');
-                            const buyerAddressField = document.getElementById('b_address');
-                            
-                            addressDropdown.innerHTML = '';
-                            if (response.addresses.length > 1) {
-                                addressGroup.style.display = 'block';
-                                alert("Multiple addresses found in the database.");
-                                response.addresses.forEach(addr => {
-                                    let option = document.createElement('option');
-                                    option.value = addr;
-                                    option.textContent = addr;
-                                    addressDropdown.appendChild(option);
-                                });
-                                buyerAddressField.value = response.addresses[0];
-                            } else if (response.addresses.length === 1) {
-                                addressGroup.style.display = 'none';
-                                buyerAddressField.value = response.addresses[0];
-                            } else {
-                                alert("No addresses found for this buyer.");
-                            }
+                            // Create buyer dropdown
+                            const buyerDropdown = document.createElement('select');
+                            buyerDropdown.classList.add('form-control');
+                            buyerDropdown.id = 'buyerDropdown';
+            
+                            // Add default "Select Buyer" option
+                            const defaultOption = document.createElement('option');
+                            defaultOption.textContent = 'Select Buyer';
+                            defaultOption.value = '';
+                            buyerDropdown.appendChild(defaultOption);
+            
+                            // Add buyer options
+                            response.buyers.forEach(buyer => {
+                                const option = document.createElement('option');
+                                option.textContent = buyer.buyer_name;
+                                option.setAttribute('data-name', buyer.buyer_name);
+                                option.setAttribute('data-gst', buyer.buyer_gst);
+                                option.setAttribute('data-addresses', JSON.stringify(buyer.addresses));
+                                buyerDropdown.appendChild(option);
+                            });
+            
+                            // Add event listener for buyer selection
+                            buyerDropdown.addEventListener('change', function () {
+                                const selectedOption = buyerDropdown.options[buyerDropdown.selectedIndex];
+                                const buyerName = selectedOption.getAttribute('data-name');
+                                const buyerGST = selectedOption.getAttribute('data-gst');
+                                const addresses = JSON.parse(selectedOption.getAttribute('data-addresses') || '[]');
+            
+                                // Update buyer details
+                                if (buyerName) {
+                                    document.getElementById('b_name').value = buyerName;
+                                    document.getElementById('b_gst').value = buyerGST;
+            
+                                    // Remove existing address dropdown
+                                    const existingAddressDropdown = document.getElementById('addressDropdown');
+                                    if (existingAddressDropdown) {
+                                        existingAddressDropdown.remove();
+                                    }
+            
+                                    // Create address dropdown if multiple addresses exist
+                                    if (addresses.length > 1) {
+                                        alert("Multiple addresses found for this buyer.");
+            
+                                        const addressDropdown = document.createElement('select');
+                                        addressDropdown.classList.add('form-control');
+                                        addressDropdown.id = 'addressDropdown';
+            
+                                        // Add default "Select Address" option
+                                        const defaultAddressOption = document.createElement('option');
+                                        defaultAddressOption.textContent = 'Select Address';
+                                        defaultAddressOption.value = '';
+                                        addressDropdown.appendChild(defaultAddressOption);
+            
+                                        addresses.forEach(address => {
+                                            const addressOption = document.createElement('option');
+                                            addressOption.textContent = address;
+                                            addressOption.value = address;
+                                            addressDropdown.appendChild(addressOption);
+                                        });
+            
+                                        // Update address field when an address is selected
+                                        addressDropdown.addEventListener('change', function () {
+                                            document.getElementById('b_address').value = addressDropdown.value;
+                                        });
+            
+                                        // Insert the address dropdown above the address field
+                                        const addressField = document.getElementById('b_address');
+                                        addressField.parentNode.insertBefore(addressDropdown, addressField);
+                                    } else if (addresses.length === 1) {
+                                        // If only one address exists, set it directly
+                                        document.getElementById('b_address').value = addresses[0];
+                                    } else {
+                                        alert("No addresses found for this buyer.");
+                                    }
+                                }
+                            });
+            
+                            // Append the buyer dropdown to the form
+                            document.getElementById('b_name').parentNode.appendChild(buyerDropdown);
                         } else {
-                            alert("Buyer not found in the database.");
-                            document.getElementById('b_address').value = "";
-                            document.getElementById('b_gst').value = "";
+                            alert("No buyers found matching the search criteria.");
                         }
                     },
-                    error: function() {
-                        alert("Error checking buyer details.");
+                    error: function () {
+                        alert("Error retrieving buyer details.");
                     }
                 });
-            });
-        
+            });                    
+            
             document.getElementById('invoiceForm').addEventListener('submit', function(event) {
                 const addressField = document.getElementById('b_address').value.toLowerCase();
                 const indianStates = [
