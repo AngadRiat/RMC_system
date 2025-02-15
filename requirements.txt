@@ -34,6 +34,7 @@ cleo==2.1.0
 click==8.1.7
 cloudpathlib==0.20.0
 cloudpickle==3.1.0
+cloup==3.0.5
 colorama==0.4.6
 colorlog==6.9.0
 comm==0.2.2
@@ -44,6 +45,7 @@ crashtest==0.4.1
 cssselect2==0.7.0
 cycler==0.12.1
 cymem==2.0.10
+Cython==3.0.11
 dataclasses-json==0.6.7
 datasets==2.1.0
 debugpy==1.8.5
@@ -73,6 +75,7 @@ funcy==2.0
 future==1.0.0
 gensim==4.3.3
 genson==1.3.0
+glcontext==3.0.0
 greenlet==3.1.1
 gym==0.26.2
 gym-notices==0.0.8
@@ -89,6 +92,7 @@ idna==3.10
 igraph==0.11.8
 imagecodecs==2024.12.30
 imageio==2.36.1
+imageio-ffmpeg==0.5.1
 imbalanced-learn==0.12.4
 imgaug==0.4.0
 importlib_metadata==8.5.0
@@ -96,6 +100,7 @@ iniconfig==2.0.0
 installer==0.7.0
 ipykernel==6.29.5
 ipython==8.27.0
+isosurfaces==0.1.2
 itsdangerous==2.2.0
 jaraco.classes==3.4.0
 jedi==0.19.1
@@ -120,6 +125,9 @@ lightning-utilities==0.11.9
 llvmlite==0.43.0
 loguru==0.7.2
 Mako==1.3.8
+manim==0.18.1
+ManimPango==0.6.0
+mapbox_earcut==1.0.3
 marisa-trie==1.2.1
 markdown-it-py==3.0.0
 markovify==0.9.4
@@ -128,7 +136,10 @@ marshmallow==3.23.3
 matplotlib==3.8.1
 matplotlib-inline==0.1.7
 mdurl==0.1.2
+moderngl==5.12.0
+moderngl-window==3.1.0
 more-itertools==10.5.0
+moviepy==2.1.2
 mpmath==1.3.0
 msgpack==1.1.0
 msgpack-numpy==0.4.8
@@ -155,7 +166,6 @@ pexpect==4.9.0
 Pillow==10.1.0
 pkginfo==1.12.0
 platformdirs==4.3.6
--e git+https://github.com/plexe-ai/plexe.git@e00378a197d7ad5429b60236c9d850e0736f7efe#egg=plexe&subdirectory=apps/services/plexe-agent
 plotly==5.24.1
 pluggy==1.5.0
 poetry==1.8.5
@@ -163,6 +173,7 @@ poetry-core==1.9.1
 poetry-plugin-export==1.8.0
 pooch==1.8.2
 preshed==3.0.9
+proglog==0.1.10
 prompt_toolkit==3.0.47
 propcache==0.2.1
 psutil==6.0.0
@@ -171,12 +182,19 @@ pure_eval==0.2.3
 py4j==0.10.9.8
 pyaml==25.1.0
 pyarrow==18.1.0
+pycairo==1.27.0
 pycparser==2.22
 pydantic==2.10.4
 pydantic_core==2.27.2
+pydub==0.25.1
 pydyf==0.11.0
+pygame==2.6.1
+pyglet==2.1.0
+PyGLM==2.7.3
 Pygments==2.18.0
 PyMuPDF==1.24.12
+pyobjc-core==10.3.2
+pyobjc-framework-Cocoa==10.3.2
 pyocr==0.8.5
 pyparsing==3.1.1
 pypdf==5.1.0
@@ -184,6 +202,7 @@ pyphen==0.16.0
 pyproject_hooks==1.2.0
 pytest==7.4.3
 python-dateutil==2.8.2
+python-dotenv==1.0.1
 python-multipart==0.0.20
 pytorch-lightning==2.5.0.post0
 pytz==2023.3.post1
@@ -204,12 +223,14 @@ scikit-image==0.25.0
 scikit-learn==1.2.2
 scikit-optimize==0.10.2
 scipy==1.11.4
+screeninfo==0.8.1
 seaborn==0.13.1
 sentencepiece==0.2.0
 shapely==2.0.6
 shellingham==1.5.4
 shutup==0.2.0
 six==1.16.0
+skia-pathops==0.8.0.post2
 sklearn-pandas==2.2.0
 smart-open==7.1.0
 sniffio==1.3.1
@@ -220,8 +241,10 @@ spacy-legacy==3.0.12
 spacy-loggers==1.0.5
 SQLAlchemy==2.0.36
 srsly==2.5.0
+srt==3.5.3
 stack-data==0.6.3
 starlette==0.41.3
+svgelements==1.9.6
 sympy==1.13.3
 tabulate==0.9.0
 tenacity==9.0.0
@@ -256,6 +279,7 @@ urllib3==2.3.0
 uvicorn==0.34.0
 virtualenv==20.28.1
 wasabi==1.1.3
+watchdog==6.0.0
 wcwidth==0.2.13
 weasel==0.4.1
 weasyprint==62.3
