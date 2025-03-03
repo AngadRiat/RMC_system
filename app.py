@@ -239,7 +239,6 @@ def pdf_generate_new(invoice_data):
         
     c.save()
     overlay_pdf_stream.seek(0)
-
     template_path = "data/Tax Invoice 2024 TEMPLATE.pdf"
     x = invoice_data["invoice_no"]
     y = x.split("/")
@@ -289,7 +288,7 @@ def login():
         # Fetch the user by username only, no password in the SQL query
         try:
             with conn.cursor() as cur:
-                cur.execute('SELECT * FROM users WHERE username = %s', (username,))
+                cur.execute('SELECT username, password, name, role FROM users WHERE username = %s', (username,))
                 user = cur.fetchone()
         finally:
             conn.close()
@@ -341,7 +340,6 @@ def home_page_new():
 # View invoices page routing
 @app.route('/view_invoices_new')
 def view_invoices_new():
-    
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -374,11 +372,12 @@ def view_invoices_new():
             'price': item[6]  
         })
     
-    # Organize invoices and fetch associated buyer details
+    # Organize invoices and fetch associated buyer and consignee details
     for invoice in invoices:
         invoice_id = invoice[0]  # PostgreSQL returns tuples, so use indexing
         buyer_id = invoice[2]  
         address_id = invoice[3]  
+        consignee_id = invoice[4]  # Fetch consignee_id from the invoice
 
         # Fetch buyer details
         cur.execute('SELECT buyer_name, buyer_gst FROM buyer_info WHERE buyer_id = %s', (buyer_id,))
@@ -391,17 +390,22 @@ def view_invoices_new():
         buyer_address = cur.fetchone()
         buyer_address = buyer_address[0] if buyer_address else "No Address"
 
+        # Fetch consignee address
+        cur.execute('SELECT consignee_address FROM consignee_addresses WHERE consignee_id = %s', (consignee_id,))
+        consignee_address = cur.fetchone()
+        consignee_address = consignee_address[0] if consignee_address else "No Consignee Address"
+
         invoice_data.append({
             'invoiceID': invoice_id,
             'buyerName': buyer_name,
             'invoiceDate': format_date(invoice[1]),  # Format date properly
-            'poDetails': invoice[4],
+            'poDetails': invoice[5],  # Updated index for po_details
             'buyerAddress': buyer_address,
             'gstin': buyer_gst,
-            'consignee': invoice[5],
-            'dispatch': invoice[6],
-            'totalPrice': invoice[7],
-            'finalAmount': invoice[8],
+            'consignee': consignee_address,  # Use consignee address from the table
+            'dispatch': invoice[6],  # Updated index for dispatch
+            'totalPrice': invoice[7],  # Updated index for total_price
+            'finalAmount': invoice[8],  # Updated index for final_amount
             'items': items_by_invoice.get(invoice_id, [])  
         })
 
@@ -416,6 +420,7 @@ def view_invoices_new():
         user_role=session.get("role")
     )
 
+
 @app.route('/first_page_new')
 @role_required('admin')
 def first_page_new():
@@ -425,6 +430,8 @@ def first_page_new():
     buyer_info = None
     selected_address = None
     buyer_addresses = []
+    consignee_addresses = []
+    selected_consignee_address = None
 
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
@@ -449,21 +456,46 @@ def first_page_new():
             selected_address = cursor.fetchone()
             selected_address = selected_address['address'] if selected_address else None
 
+        # Retrieve all associated consignee addresses for the buyer
+        cursor.execute("SELECT consignee_id, consignee_address FROM consignee_addresses WHERE buyer_id = %s", (buyer_id,))
+        consignee_addresses = [{'consignee_id': row['consignee_id'], 'consignee_address': row['consignee_address']} for row in cursor.fetchall()]
+
+        # Set the selected consignee address if only one exists
+        if len(consignee_addresses) == 1:
+            selected_consignee_address = consignee_addresses[0]['consignee_address']
+
+    # Fetch the maximum invoice_id from the invoices table
+    cursor.execute("SELECT MAX(invoice_id) FROM invoices")
+    last_invoice_id = cursor.fetchone()[0]
+
+    # Extract the numeric part of the invoice_id and increment it
+    if last_invoice_id:
+        # Assuming invoice_id follows the format "INV001", "INV002", etc.
+        last_invoice_number = int(last_invoice_id[16:])  # Extract the numeric part after "INV"
+        next_invoice_number = last_invoice_number + 1
+    else:
+        # If no invoices exist, start from 1
+        next_invoice_number = 1
+
+    # Format the next invoice number as a 3-digit string
+    next_invoice_number = f"{next_invoice_number:03}"
+
     # Close the cursor and connection
     cursor.close()
     conn.close()
 
-    # Render the template, passing buyer info, selected address, and all addresses
+    # Render the template, passing buyer info, selected address, all addresses, consignee addresses, selected consignee address, and next invoice number
     return render_template(
         'first_page_new.html',
         buyer_info=buyer_info,
         selected_address=selected_address,
-        buyer_addresses=buyer_addresses
+        buyer_addresses=buyer_addresses,
+        consignee_addresses=consignee_addresses,
+        selected_consignee_address=selected_consignee_address,
+        next_invoice_number=next_invoice_number
     )
 
 # Second page (form input) routing
-import psycopg2
-from psycopg2.extras import DictCursor
 
 @app.route('/second_page_new', methods=['GET', 'POST'])
 @role_required('admin')
@@ -511,6 +543,13 @@ def second_page_new():
     if not buyer_state:
         flash('Please include a valid Indian state in the buyer address.', 'error')
         return redirect(url_for('first_page_new'))
+
+    # Fetch consignee_id if consignee address is selected
+    if "consigneeDropdown" in request.form:
+        consignee_id = request.form["consigneeDropdown"]
+        session["Consignee_ID"] = consignee_id
+    else:
+        session["Consignee_ID"] = None
 
     return render_template('second_page_new.html')
 
@@ -618,14 +657,68 @@ def third_page_new():
 @app.route('/submit_invoice_new', methods=['POST'])
 @role_required('admin')
 def submit_invoice_new():
-    # Fetch data from session to insert into the database
+    # Determine if the data is coming from the session (new invoice) or form (duplicate invoice)
+    if "Buyer_Name" in session:
+        # Data is coming from the session (new invoice)
+        buyer_name = session["Buyer_Name"]
+        buyer_address = session["Buyer_Address"]
+        buyer_gst = session["Buyer_GST"]
+        consignee_details = session["Consignee"]
+        invoice_number = session["Invoice_ID"]
+        invoice_date = session["Date"]
+        po_details = session["PO_Details"]
+        dispatch = session["Dispatch"]
+        total_price = int(float(session["Total_Price"]))  # Convert to integer
+        final_amount = int(float(total_price) * 1.18)  # Recalculate final_amount
+        items = session["Items"]
+    else:
+        # Data is coming from the form (duplicate invoice)
+        year = request.form.get("financial_year")
+        buyer_name = request.form.get('buyer_name')
+        buyer_address = request.form.get('buyer_address')
+        buyer_gst = request.form.get('buyer_gst')
+        consignee_details = request.form.get('consignee_details')
+        inv_id = request.form.get('invoice_number')
+        invoice_date = request.form.get('invoice_date')
+        po_details = request.form.get('po_details')
+        dispatch = request.form.get('dispatch')
+        total_price = request.form.get('total_price')
+        total_price = int(float(total_price))  # Convert to integer
+        final_amount = int(float(total_price) * 1.18)  # Recalculate final_amount
+        invoice_number = f"RMC / {year} / {inv_id}"
+        buyer_state = extract_state_from_address(buyer_address)
+        session["Buyer_State"] = buyer_state
+
+        # Extract item details from the form
+        items = []
+        for key, value in request.form.items():
+            if key.startswith('description_'):
+                item_id = key.split('_')[1]
+                description = value
+                hsn_code = request.form.get(f'hsnCode_{item_id}')
+                quantity = int(request.form.get(f'quantity_{item_id}'))  # Convert to integer
+                rate = float(request.form.get(f'rate_{item_id}'))  # Convert to float
+                price = int(float(request.form.get(f'price_{item_id}')))  # Convert to integer
+                items.append({
+                    'description': description,
+                    'hsnCode': hsn_code,
+                    'qty': quantity,
+                    'rate': rate,
+                    'price': price
+                })
+
+    # Validate that at least one item is present
+    if not items:
+        flash("At least one item is required to create an invoice.", "error")
+        return redirect(request.referrer)
+
+    # Save the new invoice to the database
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if the buyer exists in buyer_info and fetch the buyer_id if it does
-    cursor.execute('SELECT buyer_id FROM buyer_info WHERE buyer_name = %s', (session["Buyer_Name"],))
+    cursor.execute('SELECT buyer_id FROM buyer_info WHERE buyer_name = %s', (buyer_name,))
     result = cursor.fetchone()
-
     if result:
         # Existing buyer: fetch the buyer_id
         buyer_id = result[0]
@@ -634,47 +727,62 @@ def submit_invoice_new():
             UPDATE buyer_info 
             SET buyer_gst = %s 
             WHERE buyer_id = %s''',
-            (session["Buyer_GST"], buyer_id))
+            (buyer_gst, buyer_id))
     else:
         # New buyer: insert into buyer_info and fetch buyer_id
         cursor.execute('''INSERT INTO buyer_info (buyer_name, buyer_gst) VALUES (%s, %s) RETURNING buyer_id''',
-                       (session["Buyer_Name"], session["Buyer_GST"]))
+                       (buyer_name, buyer_gst))
         buyer_id = cursor.fetchone()[0]
 
     # Check if buyer's address already exists in buyer_addresses and fetch address_id
-    cursor.execute('SELECT address_id FROM buyer_addresses WHERE buyer_id = %s AND address = %s', (buyer_id, session["Buyer_Address"]))
+    cursor.execute('SELECT address_id FROM buyer_addresses WHERE buyer_id = %s AND address = %s', (buyer_id, buyer_address))
     address_result = cursor.fetchone()
-
     if address_result:
         # Existing address: fetch the address_id
         address_id = address_result[0]
     else:
         # New address: insert into buyer_addresses and fetch address_id
         cursor.execute('''INSERT INTO buyer_addresses (buyer_id, address) VALUES (%s, %s) RETURNING address_id''',
-                       (buyer_id, session["Buyer_Address"]))
+                       (buyer_id, buyer_address))
         address_id = cursor.fetchone()[0]
 
-    # Insert invoice data into invoices table, linking to buyer_id and address_id
-    cursor.execute('''INSERT INTO invoices (invoice_id, invoice_date, buyer_id, address_id, po_details, consignee_details, dispatch,
+    # Check if consignee address exists in consignee_addresses and fetch consignee_id
+    cursor.execute('SELECT consignee_id FROM consignee_addresses WHERE buyer_id = %s AND consignee_address = %s', (buyer_id, consignee_details))
+    consignee_result = cursor.fetchone()
+    if consignee_result:
+        # Existing consignee address: fetch the consignee_id
+        consignee_id = consignee_result[0]
+    else:
+        # New consignee address: insert into consignee_addresses and fetch consignee_id
+        cursor.execute('''INSERT INTO consignee_addresses (buyer_id, consignee_address) VALUES (%s, %s) RETURNING consignee_id''',
+                       (buyer_id, consignee_details))
+        consignee_id = cursor.fetchone()[0]
+
+    # Insert invoice data into invoices table, linking to buyer_id, address_id, and consignee_id
+    cursor.execute('''INSERT INTO invoices 
+                      (invoice_id, invoice_date, buyer_id, address_id, consignee_id, po_details, dispatch,
                       total_price, final_amount) 
                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                   (session["Invoice_ID"], session["Date"], buyer_id, address_id, session["PO_Details"],
-                    session["Consignee"], session["Dispatch"], session["Total_Price"], session["final_amount"]))
+                   (invoice_number, invoice_date, buyer_id, address_id, consignee_id, po_details,
+                    dispatch, total_price, final_amount))
 
     # Insert each item into invoice_items table linked to this invoice
-    for item in session["Items"]:
+    for item in items:
         cursor.execute('''INSERT INTO invoice_items 
                           (invoice_id, description, hsn_code, quantity, rate, price) 
                           VALUES (%s, %s, %s, %s, %s, %s)''',
-                       (session["Invoice_ID"], item['description'], item['hsnCode'], item['qty'], item['rate'], item['price']))
+                       (invoice_number, item['description'], item['hsnCode'], item['qty'], item['rate'], item['price']))
 
-    # Commit the changes and close the connection
+    # Commit the transaction
     conn.commit()
+    flash("Invoice saved successfully!", "success")
+
+    # Close the cursor and connection
     cursor.close()
     conn.close()
 
     # Redirect to the invoice generation page
-    return redirect(url_for('generate_invoice_new', invoice_id=session["Invoice_ID"].replace('/', '-')))
+    return redirect(url_for('generate_invoice_new', invoice_id=invoice_number.replace('/', '-')))
 
 
 # Generate pdf page routing
@@ -695,7 +803,6 @@ def generate_invoice_new(invoice_id):
 
         cur.execute('SELECT * FROM invoice_items WHERE invoice_id = %s', (invoice_id,))
         items = cur.fetchall()
-
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
 
@@ -706,8 +813,12 @@ def generate_invoice_new(invoice_id):
         cur.execute('SELECT * FROM buyer_addresses WHERE address_id = %s', (invoice["address_id"],))
         buyer_address = cur.fetchone()
 
-        if not buyer_info or not buyer_address:
-            return jsonify({"error": "Buyer details not found"}), 404
+        # Get consignee address from consignee_addresses
+        cur.execute('SELECT * FROM consignee_addresses WHERE consignee_id = %s', (invoice["consignee_id"],))
+        consignee_address = cur.fetchone()
+
+        if not buyer_info or not buyer_address or not consignee_address:
+            return jsonify({"error": "Buyer or consignee details not found"}), 404
 
         # Calculate IGST/CGST/SGST and amount in words
         total_price = invoice["total_price"]
@@ -726,7 +837,7 @@ def generate_invoice_new(invoice_id):
                 "dispatched_by": invoice["dispatch"],
                 "buyer_details": f"{buyer_info['buyer_name']}\n{buyer_address['address']}\nGSTIN {buyer_info['buyer_gst']}",
                 "buyer_state": buyer_state,
-                "consignee_details": invoice["consignee_details"],
+                "consignee_details": consignee_address["consignee_address"],  # Use consignee address from the table
                 "goods": [
                     {
                         "description": item["description"],
@@ -756,7 +867,7 @@ def generate_invoice_new(invoice_id):
                 "dispatched_by": invoice["dispatch"],
                 "buyer_details": f"{buyer_info['buyer_name']}\n{buyer_address['address']}\nGSTIN {buyer_info['buyer_gst']}",
                 "buyer_state": buyer_state,
-                "consignee_details": invoice["consignee_details"],
+                "consignee_details": consignee_address["consignee_address"],  # Use consignee address from the table
                 "goods": [
                     {
                         "description": item["description"],
@@ -811,12 +922,13 @@ def edit_invoice_new(invoice_id):
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
 
-    # Fetch invoice, buyer, and address details
+    # Fetch invoice, buyer, address, and consignee details
     cursor.execute('''
-        SELECT invoices.*, buyer_info.buyer_name, buyer_addresses.address, buyer_info.buyer_gst
+        SELECT invoices.*, buyer_info.buyer_name, buyer_addresses.address, buyer_info.buyer_gst, consignee_addresses.consignee_address
         FROM invoices
         JOIN buyer_info ON invoices.buyer_id = buyer_info.buyer_id
         JOIN buyer_addresses ON invoices.address_id = buyer_addresses.address_id
+        LEFT JOIN consignee_addresses ON invoices.consignee_id = consignee_addresses.consignee_id
         WHERE invoices.invoice_id = %s
     ''', (decoded_invoice_id,))
     invoice = cursor.fetchone()
@@ -836,7 +948,7 @@ def edit_invoice_new(invoice_id):
         buyer_state = extract_state_from_address(buyer_address)
         session["Buyer_State"] = buyer_state
         buyer_gst = request.form['buyer_gst']
-        consignee_details = request.form['consignee_details']
+        consignee_address = request.form['consignee_details']  # Updated to match the form field
         dispatch = request.form.get('dispatch', None)
         total_price = float(request.form['total_price'])
         final_amount = float(request.form['final_amount'])
@@ -894,14 +1006,26 @@ def edit_invoice_new(invoice_id):
             ''', (new_buyer_id, buyer_address))
             address_id = cursor.fetchone()['address_id']
 
+        # Check if the consignee address exists
+        cursor.execute('SELECT * FROM consignee_addresses WHERE buyer_id = %s AND consignee_address = %s', (new_buyer_id, consignee_address))
+        existing_consignee = cursor.fetchone()
+
+        if existing_consignee:
+            consignee_id = existing_consignee['consignee_id']
+        else:
+            cursor.execute('''
+                INSERT INTO consignee_addresses (buyer_id, consignee_address)
+                VALUES (%s, %s) RETURNING consignee_id
+            ''', (new_buyer_id, consignee_address))
+            consignee_id = cursor.fetchone()['consignee_id']
+
         # Update the invoice
         cursor.execute('''
             UPDATE invoices 
-            SET buyer_id = %s, address_id = %s, invoice_date = %s, total_price = %s, final_amount = %s, 
-                po_details = %s, consignee_details = %s, dispatch = %s
+            SET buyer_id = %s, address_id = %s, consignee_id = %s, invoice_date = %s, total_price = %s, final_amount = %s, 
+                po_details = %s, dispatch = %s
             WHERE invoice_id = %s
-        ''', (new_buyer_id, address_id, invoice_date, total_price, final_amount, po_details, 
-             consignee_details, dispatch, decoded_invoice_id))
+        ''', (new_buyer_id, address_id, consignee_id, invoice_date, total_price, final_amount, po_details, dispatch, decoded_invoice_id))
 
         conn.commit()
         cursor.close()
@@ -920,21 +1044,27 @@ def view_pdf_new(invoice_id):
     invoice_id = replace_slash_with_hyphen(invoice_id)
 
     try:
-        conn = psycopg2.connect(**DB_PARAMS)
+        conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Fetch the PDF invoice from the database
         cursor.execute("SELECT pdf_invoice FROM invoices WHERE invoice_id = %s", (invoice_id,))
         result = cursor.fetchone()
-        cursor.close()
-        conn.close()
+
+        if result and result[0]:
+            pdf_data = result[0]
+            return Response(pdf_data, mimetype='application/pdf')
+        else:
+            return "PDF not found for this invoice.", 404
 
     except Exception as e:
         return f"Database error: {str(e)}", 500
 
-    if result and result[0]:
-        pdf_data = result[0]
-        return Response(pdf_data, mimetype='application/pdf')
-    else:
-        return "PDF not found for this invoice.", 404
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
     
 
 @app.route('/buyer_table_new')
@@ -943,12 +1073,14 @@ def buyer_table_new():
         conn = psycopg2.connect(**DB_PARAMS)
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # Fetch buyer information along with multiple addresses for each buyer
+        # Fetch buyer information along with multiple addresses and consignee addresses
         cursor.execute('''
             SELECT buyer_info.buyer_id, buyer_info.buyer_name, buyer_info.buyer_gst, 
-                   buyer_addresses.address, buyer_addresses.address_id
+                   buyer_addresses.address, buyer_addresses.address_id,
+                   consignee_addresses.consignee_address, consignee_addresses.consignee_id
             FROM buyer_info
             LEFT JOIN buyer_addresses ON buyer_info.buyer_id = buyer_addresses.buyer_id
+            LEFT JOIN consignee_addresses ON buyer_info.buyer_id = consignee_addresses.buyer_id
             ORDER BY buyer_info.buyer_id
         ''')
 
@@ -958,7 +1090,7 @@ def buyer_table_new():
     finally:
         conn.close()
 
-    # Organize data by buyer_id to group addresses
+    # Organize data by buyer_id to group addresses and consignee addresses
     buyers = {}
     for row in raw_data:
         buyer_id = row['buyer_id']
@@ -966,17 +1098,24 @@ def buyer_table_new():
         buyer_gst = row['buyer_gst']
         address = row['address']
         address_id = row['address_id']
+        consignee_address = row['consignee_address']
+        consignee_id = row['consignee_id']
 
         if buyer_id not in buyers:
             buyers[buyer_id] = {
                 'buyer_name': buyer_name,
                 'buyer_gst': buyer_gst,
                 'addresses': [],
-                'address_id': []
+                'address_id': [],
+                'consignee_addresses': [],
+                'consignee_id': []
             }
         if address:
             buyers[buyer_id]['addresses'].append(address)
             buyers[buyer_id]['address_id'].append(address_id)
+        if consignee_address:
+            buyers[buyer_id]['consignee_addresses'].append(consignee_address)
+            buyers[buyer_id]['consignee_id'].append(consignee_id)
 
     # Pass the data to the template
     return render_template('buyer_table_new.html', buyers=buyers, user_role=session.get("role"))
@@ -1062,6 +1201,7 @@ def delete_buyer_new(buyer_id):
     # Redirect back to the buyer table page after successful deletion
     return redirect(url_for('buyer_table_new'))
 
+
 @app.route('/check_buyer', methods=['POST'])
 @role_required('admin')
 def check_buyer():
@@ -1083,19 +1223,24 @@ def check_buyer():
         if results:
             for buyer_id, buyer_name, buyer_gst in results:
                 # Fetch all addresses for each buyer
-                cursor.execute("SELECT address FROM buyer_addresses WHERE buyer_id = %s", (buyer_id,))
+                cursor.execute("SELECT address, address_id FROM buyer_addresses WHERE buyer_id = %s", (buyer_id,))
                 addresses = cursor.fetchall()
                 
-                # Convert addresses from tuples to a list of strings
-                address_list = [addr[0] for addr in addresses]
+                # Fetch all consignee addresses for each buyer
+                cursor.execute("SELECT consignee_address, consignee_id FROM consignee_addresses WHERE buyer_id = %s", (buyer_id,))
+                consignees = cursor.fetchall()
+
+                # Convert addresses and consignees from tuples to lists of dictionaries
+                address_list = [{'address': addr[0], 'address_id': addr[1]} for addr in addresses]
+                consignee_list = [{'consignee_address': cons[0], 'consignee_id': cons[1]} for cons in consignees]
 
                 buyers.append({
                     'buyer_id': buyer_id,
                     'buyer_name': buyer_name,
                     'buyer_gst': buyer_gst,
-                    'addresses': address_list
+                    'addresses': address_list,
+                    'consignees': consignee_list
                 })
-        
         return jsonify({'exists': bool(buyers), 'buyers': buyers})
 
     except Exception as e:
@@ -1113,11 +1258,12 @@ def export_invoices_csv():
 
     # Fetch invoices data
     cursor.execute("""
-        SELECT i.invoice_id, i.invoice_date, b.buyer_name, ba.address, b.buyer_gst, 
-               i.po_details, i.consignee_details, i.dispatch, i.total_price, i.final_amount
+        SELECT i.invoice_id, i.invoice_date, b.buyer_name, ba.address, ca.consignee_address, 
+               b.buyer_gst, i.po_details, i.dispatch, i.total_price, i.final_amount
         FROM invoices i
         JOIN buyer_info b ON i.buyer_id = b.buyer_id
         JOIN buyer_addresses ba ON i.address_id = ba.address_id
+        JOIN consignee_addresses ca ON i.consignee_id = ca.consignee_id
         ORDER BY i.invoice_id ASC
     """)
     invoices_data = cursor.fetchall()
@@ -1141,16 +1287,16 @@ def export_invoices_csv():
         invoices_writer = csv.writer(invoices_csv, quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
 
         # Write headers
-        invoices_writer.writerow(["Invoice ID", "Invoice Date", "Buyer Name", "Buyer Address", "Buyer GST",
-                                  "PO Details", "Consignee Details", "Dispatch Details", "Total Price", "Final Amount"])
+        invoices_writer.writerow(["Invoice ID", "Invoice Date", "Buyer Name", "Buyer Address", "Consignee Address",
+                                  "Buyer GST", "PO Details", "Dispatch Details", "Total Price", "Final Amount"])
         
         # Write data rows
         for row in invoices_data:
-            invoice_id, invoice_date, buyer_name, buyer_address, buyer_gst, po_details, consignee_details, dispatch, total_price, final_amount = row
+            invoice_id, invoice_date, buyer_name, buyer_address, consignee_address, buyer_gst, po_details, dispatch, total_price, final_amount = row
             formatted_date = invoice_date.strftime("%d/%m/%Y") if isinstance(invoice_date, (datetime, date)) else invoice_date
 
-            invoices_writer.writerow([invoice_id, formatted_date, buyer_name, buyer_address, buyer_gst, po_details, 
-                                      consignee_details, dispatch, total_price, final_amount])
+            invoices_writer.writerow([invoice_id, formatted_date, buyer_name, buyer_address, consignee_address, 
+                                      buyer_gst, po_details, dispatch, total_price, final_amount])
 
         # Add invoices CSV to ZIP
         zip_file.writestr("invoices.csv", invoices_csv.getvalue())
@@ -1210,6 +1356,74 @@ def delete_address(address_id):
 
     # Redirect back to the buyer table page after successful deletion
     return redirect(url_for('buyer_table_new'))
+
+@app.route('/duplicate_invoice/<invoice_id>', methods=['GET'])
+@role_required('admin')
+def duplicate_invoice(invoice_id):
+    # Decode the invoice_id from the URL
+    decoded_invoice_id = invoice_id.replace('-', '/')
+    decoded_invoice_id = replace_slash_with_hyphen(decoded_invoice_id)
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+
+    # Fetch the original invoice details
+    cursor.execute('''
+        SELECT invoices.*, buyer_info.buyer_name, buyer_addresses.address, buyer_info.buyer_gst, consignee_addresses.consignee_address
+        FROM invoices
+        JOIN buyer_info ON invoices.buyer_id = buyer_info.buyer_id
+        JOIN buyer_addresses ON invoices.address_id = buyer_addresses.address_id
+        LEFT JOIN consignee_addresses ON invoices.consignee_id = consignee_addresses.consignee_id
+        WHERE invoices.invoice_id = %s
+    ''', (decoded_invoice_id,))
+    original_invoice = cursor.fetchone()
+
+    if original_invoice is None:
+        return "Invoice not found", 404
+
+    # Convert the DictCursor row to a regular dictionary
+    original_invoice = dict(original_invoice)
+
+    # Add consignee_details to the original_invoice dictionary
+    original_invoice['consignee_details'] = original_invoice.get('consignee_address', '')
+
+    # Fetch the invoice items
+    cursor.execute('SELECT * FROM invoice_items WHERE invoice_id = %s', (decoded_invoice_id,))
+    invoice_items = cursor.fetchall()
+
+    # Fetch the next invoice number for the current financial year
+    cursor.execute("SELECT MAX(invoice_id) FROM invoices WHERE invoice_id LIKE 'RMC / 24 - 25 / %'")
+    last_invoice_id = cursor.fetchone()[0]
+
+    if last_invoice_id:
+        # Extract the numeric part of the last invoice ID (e.g., "008" from "RMC / 24 - 25 / 008")
+        last_invoice_number = int(last_invoice_id.split('/')[-1].strip())
+        next_inv = f"{last_invoice_number + 1:03}"
+    else:
+        # If no invoices exist for the current financial year, start from 1
+        next_inv = "001"
+
+    # Close the cursor and connection
+    cursor.close()
+    conn.close()
+
+    # Financial year options
+    financial_years = ['20 - 21', '21 - 22', '22 - 23', '23 - 24', '24 - 25']
+
+    # Calculate total price and final amount for the original invoice
+    total_price = sum(item['price'] for item in invoice_items)
+    final_amount = total_price * 1.18  # Assuming 18% GST
+
+    # Render the duplicate invoice template with pre-filled data
+    return render_template(
+        'duplicate_invoice.html',
+        original_invoice=original_invoice,
+        invoice_items=invoice_items,
+        next_invoice_number=next_inv,
+        financial_years=financial_years,
+        total_price=total_price,
+        final_amount=final_amount
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

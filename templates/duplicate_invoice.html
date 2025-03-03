@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate Invoice</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Your existing CSS styles */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Duplicate Invoice: {{ original_invoice.invoice_id }}</h2>
+        <form method="POST" action="{{ url_for('submit_invoice_new') }}" onsubmit="return validateForm()">
+            <!-- Financial Year Dropdown -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="financial_year">Financial Year:</label>
+                        <select class="form-control" id="financial_year" name="financial_year" required>
+                            {% for year in financial_years %}
+                                <option value="{{ year }}" {% if year == '24 - 25' %}selected{% endif %}>{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="invoice_number">Invoice No.</label>
+                        <input type="text" class="form-control" id="invoice_number" name="invoice_number" value="{{ next_invoice_number }}" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Details -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="buyer_name">Buyer Name:</label>
+                        <input type="text" class="form-control" id="buyer_name" name="buyer_name" value="{{ original_invoice['buyer_name'] }}" readonly>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="invoice_date">Invoice Date:</label>
+                        <input type="date" class="form-control" id="invoice_date" name="invoice_date" value="{{ original_invoice['invoice_date'].strftime('%Y-%m-%d') if original_invoice['invoice_date'] else '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="po_details">PO Details (Optional):</label>
+                        <textarea class="form-control" id="po_details" name="po_details">{{ original_invoice['po_details'] }}</textarea>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="buyer_address">Buyer Address</label>
+                        <textarea class="form-control" id="buyer_address" name="buyer_address">{{ original_invoice['address'] }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="buyer_gst">Buyer GSTIN</label>
+                        <input type="text" class="form-control" id="buyer_gst" name="buyer_gst" value="{{ original_invoice['buyer_gst'] }}" readonly>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="consignee_details">Consignee Details:</label>
+                        <textarea class="form-control" id="consignee_details" name="consignee_details">{{ original_invoice['consignee_details'] }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="dispatch">Dispatch (Optional)</label>
+                        <input type="text" class="form-control" id="dispatch" name="dispatch" value="{{ original_invoice['dispatch'] }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Items -->
+            <h3>Invoice Items</h3>
+            
+            <!-- Add Item Dropdown -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="form-group">
+                        <label for="itemDropdown">Add Item:</label>
+                        <select class="form-control" id="itemDropdown">
+                            <option value="" disabled selected>Select Item</option>
+                            <option value="2” x 2” Helical gear pump">2” x 2” Helical gear pump</option>
+                            <option value="3” X 3” Helical gear pump with external bearing support">3” X 3” Helical gear pump with external bearing support</option>
+                            <option value="3” x 3” All bearing rotary gear pump">3” x 3” All bearing rotary gear pump</option>
+                            <option value="4” X 4” Light duty helical gear pump with external bearing support">4” X 4” Light duty helical gear pump with external bearing support</option>
+                            <option value="4” X 4” Heavy duty helical gear pump with external bearing support">4” X 4” Heavy duty helical gear pump with external bearing support</option>
+                            <option value="4” X 4” Rotary gear pump">4” X 4” Rotary gear pump</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-primary mt-4" onclick="addItem()">Add Item</button>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>HSN Code</th>
+                        <th>Quantity</th>
+                        <th>Rate</th>
+                        <th>Price</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsTableBody">
+                    <!-- Pre-filled items from the original invoice -->
+                    {% for item in invoice_items %}
+                    <tr>
+                        <td>
+                            <textarea id="description_{{ item['item_id'] }}" name="description_{{ item['item_id'] }}" rows="3" cols="20" required>{{ item['description'] }}</textarea>
+                        </td>
+                        <td>
+                            <input type="text" id="hsnCode_{{ item['item_id'] }}" name="hsnCode_{{ item['item_id'] }}" value="{{ item['hsn_code'] }}" required>
+                        </td>
+                        <td>
+                            <input type="number" id="quantity_{{ item['item_id'] }}" name="quantity_{{ item['item_id'] }}" value="{{ item['quantity'] }}" required oninput="updatePrice('{{ item['item_id'] }}')">
+                        </td>
+                        <td>
+                            <input type="number" id="rate_{{ item['item_id'] }}" name="rate_{{ item['item_id'] }}" value="{{ item['rate'] }}" step="0.01" required oninput="updatePrice('{{ item['item_id'] }}')">
+                        </td>
+                        <td>
+                            <input type="text" id="price_{{ item['item_id'] }}" name="price_{{ item['item_id'] }}" value="{{ item['quantity'] * item['rate'] }}" readonly>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger" onclick="deleteItem(this)">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Total Price and Final Amount -->
+            <div class="total-section">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="total_price">Total Price:</label>
+                            <input type="number" class="form-control" id="total_price" name="total_price" readonly>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="final_amount">Final Amount (Including GST):</label>
+                            <input type="number" class="form-control" id="final_amount" name="final_amount" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary">Save Duplicate Invoice</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let itemCounter = {{ invoice_items | length }}; // Initialize item counter with the number of pre-filled items
+
+        // Function to add a new item
+        function addItem() {
+            const itemDropdown = document.getElementById('itemDropdown');
+            const selectedItem = itemDropdown.value;
+        
+            if (!selectedItem) {
+                alert("Please select an item.");
+                return;
+            }
+        
+            const tableBody = document.getElementById('itemsTableBody');
+        
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>
+                    <textarea id="description_${itemCounter}" name="description_${itemCounter}" rows="3" cols="20" required>${selectedItem === 'Other' ? '' : selectedItem}</textarea>
+                </td>
+                <td>
+                    <input type="text" id="hsnCode_${itemCounter}" name="hsnCode_${itemCounter}" value="" required>
+                </td>
+                <td>
+                    <input type="number" id="quantity_${itemCounter}" name="quantity_${itemCounter}" value="1" required oninput="updatePrice('${itemCounter}')">
+                </td>
+                <td>
+                    <input type="number" id="rate_${itemCounter}" name="rate_${itemCounter}" value="0" step="0.01" required oninput="updatePrice('${itemCounter}')">
+                </td>
+                <td>
+                    <input type="text" id="price_${itemCounter}" name="price_${itemCounter}" value="0" readonly>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger" onclick="deleteItem(this)">Delete</button>
+                </td>
+            `;
+        
+            tableBody.appendChild(newRow);
+            
+            // Recalculate totals after adding a new item
+            calculateTotal();
+            
+            // Call updatePrice to calculate the initial price
+            updatePrice(itemCounter.toString());
+            
+            itemCounter++;
+        }
+        
+        // Function to update price when quantity or rate changes
+        function updatePrice(itemId) {
+            const qty = parseFloat(document.getElementById(`quantity_${itemId}`).value) || 0;
+            const rate = parseFloat(document.getElementById(`rate_${itemId}`).value) || 0;
+            const price = qty * rate;
+            document.getElementById(`price_${itemId}`).value = price.toFixed(2);
+            calculateTotal();
+        }
+
+        // Function to delete an item
+        function deleteItem(button) {
+            const row = button.closest('tr');
+            row.remove();
+            calculateTotal();
+        }
+        
+        // Function to calculate the total price and final amount
+        function calculateTotal() {
+            let totalPrice = 0;
+            document.querySelectorAll('input[id^="price_"]').forEach(function(priceInput) {
+                totalPrice += parseFloat(priceInput.value) || 0;
+            });
+            document.getElementById('total_price').value = totalPrice.toFixed(2);
+            document.getElementById('final_amount').value = (totalPrice * 1.18).toFixed(2);  // Assuming GST of 18%
+        }
+        
+        // Attach event listeners to pre-filled items
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('input[id^="quantity_"], input[id^="rate_"]').forEach(function(input) {
+                const itemId = input.id.split('_')[1];
+                input.addEventListener('input', () => updatePrice(itemId));
+            });
+        
+            calculateTotal();
+        });
+
+        // Function to validate the form before submission
+        function validateForm() {
+            const itemCount = document.querySelectorAll('#itemsTableBody tr').length;
+            if (itemCount === 0) {
+                alert("Please add at least one item.");
+                return false;
+            }
+            return true;
+        }
+    </script>
+</body>
+</html>

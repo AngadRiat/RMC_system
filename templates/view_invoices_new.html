@@ -195,7 +195,8 @@
         <th>Final Amount (in Rs.)</th>
         <th>View</th>
         <th>Edit</th>
-        <th> Delete invoice </th>
+        <th> Delete</th>
+        <th>Duplicate</th>
     </tr>
 
     <!-- Dynamically populate invoice rows -->
@@ -226,6 +227,17 @@
             {% else %}
             <form>
                 <button disabled style="background-color: #ccc; cursor: not-allowed;">Delete (Admin Only)</button>
+            </form>
+            {% endif %}
+        </td>
+        <td>
+            {% if user_role == 'admin' %}
+            <form action="{{ url_for('duplicate_invoice', invoice_id=invoice.invoiceID.replace('/', '-')) }}" method="GET" style="display:inline;">
+                <button type="submit" style="background-color: #28a745; color: white;">Duplicate</button>
+            </form>
+            {% else %}
+            <form>
+                <button disabled style="background-color: #ccc; cursor: not-allowed;">Duplicate (Admin Only)</button>
             </form>
             {% endif %}
         </td>
