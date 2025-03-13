@@ -7,7 +7,6 @@ from flask import Flask, render_template, request, session, make_response, redir
 from weasyprint import HTML
 import re
 from urllib.parse import unquote
-import fitz  # PyMuPDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -17,6 +16,11 @@ from num2words import num2words
 from datetime import datetime, date
 from werkzeug.security import check_password_hash
 from psycopg2.extras import DictCursor
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    # Fall back to pymupdf instead of fitz
+    import pymupdf as fitz
 
 # PostgreSQL Database Configuration
 DB_PARAMS = {
