@@ -30,7 +30,7 @@ DB_PARAMS = {
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+port = int(os.getenv('PORT', 5000))
 
 # MISC Functions used
 
@@ -1428,4 +1428,4 @@ def duplicate_invoice(invoice_id):
     )
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=port)
