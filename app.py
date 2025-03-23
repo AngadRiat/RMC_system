@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, session, make_response, redir
 from weasyprint import HTML
 import re
 from urllib.parse import unquote
+import fitz  # PyMuPDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -16,11 +17,6 @@ from num2words import num2words
 from datetime import datetime, date
 from werkzeug.security import check_password_hash
 from psycopg2.extras import DictCursor
-try:
-    import fitz  # PyMuPDF
-except ImportError:
-    # Fall back to pymupdf instead of fitz
-    import pymupdf as fitz
 
 # PostgreSQL Database Configuration
 DB_PARAMS = {
@@ -33,8 +29,6 @@ DB_PARAMS = {
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-port = int(os.getenv('PORT', 5000))
 
 # MISC Functions used
 
@@ -1432,4 +1426,4 @@ def duplicate_invoice(invoice_id):
     )
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
