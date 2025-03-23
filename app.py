@@ -20,15 +20,17 @@ from psycopg2.extras import DictCursor
 
 # PostgreSQL Database Configuration
 DB_PARAMS = {
-    "dbname": "rmc_sales",
-    "user": "angad",
-    "password": "0414182521",
-    "host": "localhost",
-    "port": "5432"
+    "dbname": "rmc_sales_n53i",
+    "user": "angadr",
+    "password": "J8hmHOaf84rCOCz7n3MvLjPTTUjp81Ps",
+    "host": "dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com",
+    "port": "5432",
+    "sslmode": "require"  # Required for external connections
 }
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
 
 # MISC Functions used
 
