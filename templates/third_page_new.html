@@ -5,18 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice Summary</title>
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #f72585;
+            --accent-color: #4cc9f0;
+            --light-bg: #f8f9fa;
+            --dark-text: #2b2d42;
+            --light-text: #8d99ae;
+            --border-color: #e9ecef;
+            --success: #06d6a0;
+            --warning: #ffd166;
+            --info: #118ab2;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            font-size: 2.2rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--secondary-color);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.4rem;
+        }
+
+        .invoice-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+        }
+
+        .detail-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-item strong {
+            color: var(--dark-text);
+            font-weight: 600;
+        }
+
+        .detail-item span {
+            color: var(--light-text);
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
+            margin-bottom: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
+
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            padding: 1rem;
             text-align: left;
+            border-bottom: 1px solid var(--border-color);
         }
+
         th {
-            background-color: #f2f2f2;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
         }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+
         /* Set fixed widths for the columns */
         th.sl_no, td.sl_no {
             width: 5%;
@@ -36,35 +125,93 @@
         th.amount, td.amount {
             width: 20%;
             text-align: right; /* Align currency values to the right */
+            font-weight: 500;
         }
+
         /* Adjust the footer to span the appropriate number of columns */
         tfoot td {
-            font-weight: bold;
+            font-weight: 600;
             text-align: right;
+            background-color: rgba(67, 97, 238, 0.1);
         }
+
+        tfoot tr:last-child td {
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 1.1rem;
+        }
+
         tfoot td.total {
             text-align: left;
         }
+
         /* Button styles */
         .btn-container {
-            margin-top: 20px;
+            margin-top: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: flex-start;
         }
+
         .btn {
-            padding: 10px 20px;
-            background-color: #4CAF50;
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
             color: white;
             border: none;
             cursor: pointer;
-            text-align: center;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+
         .btn-warning {
-            background-color: #f0ad4e;
+            background-color: var(--warning);
+            color: var(--dark-text);
         }
-        .btn-home {
-            background-color: #5bc0de;
+
+        .btn-info {
+            background-color: var(--info);
         }
+
         .btn-container form {
             display: inline;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .invoice-details {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .btn-container {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -73,14 +220,16 @@
 
     <!-- Invoice Details Section -->
     <h3>Invoice Details</h3>
-    <p><strong>Invoice No:</strong> {{ invoice_id }}</p>
-    <p><strong>Date:</strong> {{ invoice_date }}</p>
-    <p><strong>Buyer Name:</strong> {{ buyer_name }}</p>
-    <p><strong>Buyer Address:</strong> {{ buyer_address }}</p>
-    <p><strong>Buyer GSTIN:</strong> {{ buyer_gst }}</p>
-    <p><strong>Consignee Details:</strong> {{ consignee }}</p>
-    <p><strong>PO Number:</strong> {{ po_details }}</p>
-    <p><strong>Dispatch Details:</strong> {{ dispatch_details }}</p>
+    <div class="invoice-details">
+        <div class="detail-item"><strong>Invoice No:</strong> <span>{{ invoice_id }}</span></div>
+        <div class="detail-item"><strong>Date:</strong> <span>{{ invoice_date }}</span></div>
+        <div class="detail-item"><strong>Buyer Name:</strong> <span>{{ buyer_name }}</span></div>
+        <div class="detail-item"><strong>Buyer Address:</strong> <span>{{ buyer_address }}</span></div>
+        <div class="detail-item"><strong>Buyer GSTIN:</strong> <span>{{ buyer_gst }}</span></div>
+        <div class="detail-item"><strong>Consignee Details:</strong> <span>{{ consignee }}</span></div>
+        <div class="detail-item"><strong>PO Number:</strong> <span>{{ po_details }}</span></div>
+        <div class="detail-item"><strong>Dispatch Details:</strong> <span>{{ dispatch_details }}</span></div>
+    </div>
 
     <table>
         <thead>
@@ -134,7 +283,7 @@
     <div class="btn-container">
         <!-- Button for submitting the invoice -->
         <form action="/submit_invoice_new" method="POST" style="display:inline;">
-            <button type="submit" class="btn">Submit Invoice</button>
+            <button type="submit" class="btn btn-primary">Submit Invoice</button>
         </form>
 
         <!-- Button for editing first page -->
@@ -144,7 +293,7 @@
 
         <!-- Button for going back to the homepage -->
         <form action="/home" method="GET" style="display:inline;">
-            <button type="submit" class="btn btn-home">Go Back to Home Page</button>
+            <button type="submit" class="btn btn-info">Go Back to Home Page</button>
         </form>
     </div>
 </body>

@@ -10,49 +10,99 @@
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         <title>Form Input</title>
         <style>
-            /* General styling */
+            /* Modern styling */
             body {
-                background-color: #f5f5f5;
-                font-family: Arial, sans-serif;
-                color: #333;
+                background-color: #f8f9fa;
+                font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                color: #343a40;
+                line-height: 1.6;
             }
             .container {
                 background-color: #ffffff;
-                padding: 20px;
+                padding: 30px;
                 margin-top: 40px;
-                border-radius: 10px;
-                box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.1);
+                margin-bottom: 40px;
+                border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            }
+            .page-header {
+                border-bottom: 2px solid #4361ee;
+                margin-bottom: 30px;
+                padding-bottom: 15px;
             }
             .page-header h1 {
-                color: #007bff;
-                font-weight: 700;
+                color: #4361ee;
+                font-weight: 600;
                 text-align: center;
+                font-size: 28px;
             }
             .form-group label {
-                font-weight: bold;
-                color: #555;
+                font-weight: 600;
+                color: #495057;
+                margin-bottom: 8px;
             }
             .form-control {
-                border-radius: 5px;
-                padding: 10px; /* Adjust padding to fit text comfortably */
-                min-height: 40px; /* Ensures minimum height for inputs and dropdowns */
-                line-height: 1.5; /* Line height adjustment for better text visibility */
-                box-sizing: border-box; /* Ensures padding doesn’t affect element’s height */
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                padding: 12px 15px;
+                min-height: 45px;
+                line-height: 1.5;
+                box-shadow: none;
+                transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
             }
-            .btn-primary, .btn-info {
-                border-radius: 5px;
-                padding: 10px 20px;
-                font-weight: bold;
+            .form-control:focus {
+                border-color: #4361ee;
+                box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+            }
+            textarea.form-control {
+                min-height: 100px;
+            }
+            .btn {
+                border-radius: 6px;
+                padding: 12px 24px;
+                font-weight: 600;
                 font-size: 16px;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+            .btn-primary {
+                background-color: #4361ee;
+                border-color: #4361ee;
+            }
+            .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+                background-color: #3a56d4;
+                border-color: #3a56d4;
+            }
+            .btn-info {
+                background-color: #4cc9f0;
+                border-color: #4cc9f0;
+                color: #fff;
+                margin-top: 10px;
+            }
+            .btn-info:hover, .btn-info:focus, .btn-info:active {
+                background-color: #3ab7de;
+                border-color: #3ab7de;
             }
             .alert {
-                font-weight: bold;
-                border-radius: 5px;
+                font-weight: 500;
+                border-radius: 6px;
                 margin-top: 10px;
+            }
+            #address-group, #buyer-group {
+                margin-top: 15px;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+                border-left: 4px solid #4cc9f0;
             }
             @media (min-width: 768px) {
                 .col-lg-5, .col-lg-7 {
                     padding-right: 20px;
+                    padding-left: 20px;
                 }
             }
         </style>
@@ -60,9 +110,8 @@
     <body>
         <div class="container">
             <div class="page-header">
-                <h1>Form Input 1</h1>
+                <h1>Invoice Information</h1>
             </div>
-            <br>
             <div class="row">
                 <form name="input" action="second_page_new" method="post" id="invoiceForm">
                     <div class="col-lg-5">
@@ -125,8 +174,7 @@
                             <textarea class="form-control" id="c_details" name="c_details" placeholder="Enter Consignee Details" rows="3" required>{{ session.get('Consignee', '') }}</textarea>
                         </div>
                     </div>
-                    <br>
-                    <div class="col-lg-12 text-center">
+                    <div class="col-lg-12 text-center" style="margin-top: 20px;">
                         <button type="submit" class="btn btn-primary">Submit</button>
                     </div>
                 </form>
@@ -141,15 +189,20 @@
                     return;
                 }
             
-                // Remove any existing dropdowns before creating new ones
+                // Remove any existing dropdowns
                 const existingBuyerDropdown = document.getElementById('buyerDropdown');
                 if (existingBuyerDropdown) {
-                    existingBuyerDropdown.remove();
+                    existingBuyerDropdown.parentNode.removeChild(existingBuyerDropdown);
                 }
             
                 const existingAddressDropdown = document.getElementById('addressDropdown');
-                if (existingAddressDropdown) {
-                    existingAddressDropdown.remove();
+                if (existingAddressDropdown && existingAddressDropdown.parentNode) {
+                    existingAddressDropdown.parentNode.removeChild(existingAddressDropdown);
+                }
+            
+                const addressGroup = document.getElementById('address-group');
+                if (addressGroup) {
+                    addressGroup.style.display = 'none';
                 }
             
                 $.ajax({
@@ -159,6 +212,16 @@
                     data: JSON.stringify({ 'buyer_name': buyerName }),
                     success: function (response) {
                         if (response.exists) {
+                            // Create buyer dropdown container
+                            const buyerDropdownContainer = document.createElement('div');
+                            buyerDropdownContainer.id = 'buyer-group';
+                            buyerDropdownContainer.classList.add('form-group');
+                            
+                            const dropdownLabel = document.createElement('label');
+                            dropdownLabel.textContent = 'Select Buyer';
+                            dropdownLabel.setAttribute('for', 'buyerDropdown');
+                            buyerDropdownContainer.appendChild(dropdownLabel);
+                            
                             // Create buyer dropdown
                             const buyerDropdown = document.createElement('select');
                             buyerDropdown.classList.add('form-control');
@@ -176,41 +239,55 @@
                                 option.textContent = buyer.buyer_name;
                                 option.setAttribute('data-name', buyer.buyer_name);
                                 option.setAttribute('data-gst', buyer.buyer_gst);
-                                option.setAttribute('data-addresses', JSON.stringify(buyer.addresses));
+                                
+                                // Store addresses as actual string values (not objects)
+                                const addresses = buyer.addresses.map(addr => addr.address);
+                                option.setAttribute('data-addresses', JSON.stringify(addresses));
+                                
+                                // Store consignee details as actual string values (not objects)
+                                const consignees = buyer.consignees.map(cons => cons.consignee_address);
+                                option.setAttribute('data-consignees', JSON.stringify(consignees));
+                                
                                 buyerDropdown.appendChild(option);
                             });
-            
+                            
+                            buyerDropdownContainer.appendChild(buyerDropdown);
+                            
                             // Add event listener for buyer selection
                             buyerDropdown.addEventListener('change', function () {
                                 const selectedOption = buyerDropdown.options[buyerDropdown.selectedIndex];
                                 const buyerName = selectedOption.getAttribute('data-name');
                                 const buyerGST = selectedOption.getAttribute('data-gst');
                                 const addresses = JSON.parse(selectedOption.getAttribute('data-addresses') || '[]');
+                                const consignees = JSON.parse(selectedOption.getAttribute('data-consignees') || '[]');
             
                                 // Update buyer details
                                 if (buyerName) {
                                     document.getElementById('b_name').value = buyerName;
                                     document.getElementById('b_gst').value = buyerGST;
             
-                                    // Remove existing address dropdown
-                                    const existingAddressDropdown = document.getElementById('addressDropdown');
-                                    if (existingAddressDropdown) {
-                                        existingAddressDropdown.remove();
+                                    // Create or show address group
+                                    let addressGroup = document.getElementById('address-group');
+                                    if (!addressGroup) {
+                                        addressGroup = document.createElement('div');
+                                        addressGroup.id = 'address-group';
+                                        addressGroup.classList.add('form-group');
+                                        document.getElementById('b_address').parentNode.insertBefore(addressGroup, document.getElementById('b_address'));
                                     }
-            
-                                    // Create address dropdown if multiple addresses exist
-                                    if (addresses.length > 1) {
-                                        alert("Multiple addresses found for this buyer.");
-            
+                                    
+                                    // Clear the address group
+                                    addressGroup.innerHTML = '';
+                                    
+                                    // Create address dropdown
+                                    if (addresses.length > 0) {
+                                        const dropdownLabel = document.createElement('label');
+                                        dropdownLabel.textContent = 'Select Buyer Address';
+                                        dropdownLabel.setAttribute('for', 'addressDropdown');
+                                        addressGroup.appendChild(dropdownLabel);
+                                        
                                         const addressDropdown = document.createElement('select');
                                         addressDropdown.classList.add('form-control');
                                         addressDropdown.id = 'addressDropdown';
-            
-                                        // Add default "Select Address" option
-                                        const defaultAddressOption = document.createElement('option');
-                                        defaultAddressOption.textContent = 'Select Address';
-                                        defaultAddressOption.value = '';
-                                        addressDropdown.appendChild(defaultAddressOption);
             
                                         addresses.forEach(address => {
                                             const addressOption = document.createElement('option');
@@ -223,21 +300,28 @@
                                         addressDropdown.addEventListener('change', function () {
                                             document.getElementById('b_address').value = addressDropdown.value;
                                         });
-            
-                                        // Insert the address dropdown above the address field
-                                        const addressField = document.getElementById('b_address');
-                                        addressField.parentNode.insertBefore(addressDropdown, addressField);
-                                    } else if (addresses.length === 1) {
-                                        // If only one address exists, set it directly
-                                        document.getElementById('b_address').value = addresses[0];
+                                        
+                                        addressGroup.appendChild(addressDropdown);
+                                        addressGroup.style.display = 'block';
+                                        
+                                        // Set the first address as default
+                                        if (addresses.length > 0) {
+                                            document.getElementById('b_address').value = addresses[0];
+                                        }
                                     } else {
-                                        alert("No addresses found for this buyer.");
+                                        addressGroup.style.display = 'none';
+                                        document.getElementById('b_address').value = '';
+                                    }
+                                    
+                                    // Set first consignee as default if available
+                                    if (consignees.length > 0) {
+                                        document.getElementById('c_details').value = consignees[0];
                                     }
                                 }
                             });
             
                             // Append the buyer dropdown to the form
-                            document.getElementById('b_name').parentNode.appendChild(buyerDropdown);
+                            document.getElementById('b_name').parentNode.appendChild(buyerDropdownContainer);
                         } else {
                             alert("No buyers found matching the search criteria.");
                         }

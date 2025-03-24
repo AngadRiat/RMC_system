@@ -1243,6 +1243,7 @@ def check_buyer():
                     'addresses': address_list,
                     'consignees': consignee_list
                 })
+        print(buyers)
         return jsonify({'exists': bool(buyers), 'buyers': buyers})
 
     except Exception as e:
