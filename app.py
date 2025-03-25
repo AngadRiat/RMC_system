@@ -22,7 +22,7 @@ from psycopg2.extras import DictCursor
 DB_PARAMS = {
     "dbname": os.environ.get("DB_NAME", "rmc_sales_n53i"),
     "user": os.environ.get("DB_USER", "angadr"),
-    "password": os.environ.get("DB_PASSWORD", ""),
+    "password": os.environ.get("DB_PASSWORD", "J8hmHOaf84rCOCz7n3MvLjPTTUjp81Ps"),
     "host": os.environ.get("DB_HOST", "dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com"),
     "port": os.environ.get("DB_PORT", "5432"),
     "sslmode": "require"  # Required for external connections
