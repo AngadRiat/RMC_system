@@ -1,7 +1,19 @@
 services:
   - type: web
-    name: rmc-system
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
-    plan: free
+    name: RMC-system
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --config gunicorn_config.py app:app
+    envVars:
+      - key: DB_NAME
+        value: rmc_sales_n53i
+      - key: DB_USER
+        value: angadr
+      - key: DB_PASSWORD
+        sync: false  # Ensures password is set securely in Render dashboard
+      - key: DB_HOST
+        value: dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com
+      - key: DB_PORT
+        value: 5432
+      - key: SECRET_KEY
+        generateValue: true

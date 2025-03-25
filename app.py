@@ -20,11 +20,11 @@ from psycopg2.extras import DictCursor
 
 # PostgreSQL Database Configuration
 DB_PARAMS = {
-    "dbname": "rmc_sales_n53i",
-    "user": "angadr",
-    "password": "J8hmHOaf84rCOCz7n3MvLjPTTUjp81Ps",
-    "host": "dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com",
-    "port": "5432",
+    "dbname": os.environ.get("DB_NAME", "rmc_sales_n53i"),
+    "user": os.environ.get("DB_USER", "angadr"),
+    "password": os.environ.get("DB_PASSWORD", ""),
+    "host": os.environ.get("DB_HOST", "dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com"),
+    "port": os.environ.get("DB_PORT", "5432"),
     "sslmode": "require"  # Required for external connections
 }
 
@@ -1429,4 +1429,4 @@ def duplicate_invoice(invoice_id):
     )
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
