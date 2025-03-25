@@ -92,7 +92,7 @@
                 border-radius: 6px;
                 margin-top: 10px;
             }
-            #address-group, #buyer-group {
+            #address-group, #buyer-group, #consignee-group {
                 margin-top: 15px;
                 padding: 15px;
                 background-color: #f8f9fa;
@@ -125,7 +125,11 @@
                         </div>
                         <div class="form-group">
                             <label for="inv_no">Invoice No.</label>
-                            <input type="number" class="form-control" id="inv_no" name="inv_no" placeholder="Enter Invoice Number (3 digit)" value="{{ session.get('inv_no', '') }}" min="000" max="999" required>
+                            <input type="text" class="form-control" id="inv_no" name="inv_no" 
+                            placeholder="001" 
+                            value="{{ next_invoice_number if next_invoice_number else session.get('inv_no', '') }}" 
+                            pattern="[0-9]{1,3}"  
+                            required>
                             {% if error %}
                                 <div class="alert alert-danger" role="alert">
                                     {{ error }}
@@ -157,7 +161,7 @@
                         </div>
                         <div class="form-group" id="address-group" style="display: none;">
                             <label for="addressDropdown">Select Buyer Address</label>
-                            <select class="form-control" id="addressDropdown" name="addressDropdown" onchange="document.getElementById('b_address').value = this.value">
+                            <select class="form-control" id="addressDropdown" name="addressDropdown">
                                 {% for address in buyer_addresses %}
                                     <option value="{{ address['address'] }}" {% if selected_address == address['address'] %} selected {% endif %}>
                                         {{ address['address'] }}
@@ -169,9 +173,19 @@
                             <label for="b_address">Buyer Address</label>
                             <textarea class="form-control" id="b_address" name="b_address" placeholder="Enter Buyer Address" rows="3" required>{{ selected_address if selected_address else '' }}</textarea>
                         </div>
+                        <div class="form-group" id="consignee-group" style="display: none;">
+                            <label for="consigneeDropdown">Select Consignee Address</label>
+                            <select class="form-control" id="consigneeDropdown" name="consigneeDropdown">
+                                {% for consignee in buyer_consignees %}
+                                    <option value="{{ consignee['consignee_address'] }}" {% if selected_consignee_address == consignee['consignee_address'] %} selected {% endif %}>
+                                        {{ consignee['consignee_address'] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label for="c_details">Consignee Details</label>
-                            <textarea class="form-control" id="c_details" name="c_details" placeholder="Enter Consignee Details" rows="3" required>{{ session.get('Consignee', '') }}</textarea>
+                            <textarea class="form-control" id="c_details" name="c_details" placeholder="Enter Consignee Details" rows="3" required>{{ selected_consignee_address if selected_consignee_address else '' }}</textarea>
                         </div>
                     </div>
                     <div class="col-lg-12 text-center" style="margin-top: 20px;">
@@ -200,9 +214,19 @@
                     existingAddressDropdown.parentNode.removeChild(existingAddressDropdown);
                 }
             
+                const existingConsigneeDropdown = document.getElementById('consigneeDropdown');
+                if (existingConsigneeDropdown && existingConsigneeDropdown.parentNode) {
+                    existingConsigneeDropdown.parentNode.removeChild(existingConsigneeDropdown);
+                }
+            
                 const addressGroup = document.getElementById('address-group');
                 if (addressGroup) {
                     addressGroup.style.display = 'none';
+                }
+            
+                const consigneeGroup = document.getElementById('consignee-group');
+                if (consigneeGroup) {
+                    consigneeGroup.style.display = 'none';
                 }
             
                 $.ajax({
@@ -240,13 +264,9 @@
                                 option.setAttribute('data-name', buyer.buyer_name);
                                 option.setAttribute('data-gst', buyer.buyer_gst);
                                 
-                                // Store addresses as actual string values (not objects)
-                                const addresses = buyer.addresses.map(addr => addr.address);
-                                option.setAttribute('data-addresses', JSON.stringify(addresses));
-                                
-                                // Store consignee details as actual string values (not objects)
-                                const consignees = buyer.consignees.map(cons => cons.consignee_address);
-                                option.setAttribute('data-consignees', JSON.stringify(consignees));
+                                // Store addresses and consignees with their IDs
+                                option.setAttribute('data-addresses', JSON.stringify(buyer.addresses));
+                                option.setAttribute('data-consignees', JSON.stringify(buyer.consignees));
                                 
                                 buyerDropdown.appendChild(option);
                             });
@@ -289,16 +309,12 @@
                                         addressDropdown.classList.add('form-control');
                                         addressDropdown.id = 'addressDropdown';
             
-                                        addresses.forEach(address => {
+                                        addresses.forEach((address, index) => {
                                             const addressOption = document.createElement('option');
-                                            addressOption.textContent = address;
-                                            addressOption.value = address;
+                                            addressOption.textContent = address.address;
+                                            addressOption.value = address.address;
+                                            addressOption.setAttribute('data-address-id', address.address_id);
                                             addressDropdown.appendChild(addressOption);
-                                        });
-            
-                                        // Update address field when an address is selected
-                                        addressDropdown.addEventListener('change', function () {
-                                            document.getElementById('b_address').value = addressDropdown.value;
                                         });
                                         
                                         addressGroup.appendChild(addressDropdown);
@@ -306,16 +322,65 @@
                                         
                                         // Set the first address as default
                                         if (addresses.length > 0) {
-                                            document.getElementById('b_address').value = addresses[0];
+                                            document.getElementById('b_address').value = addresses[0].address;
+                                        }
+            
+                                        // Create or show consignee group
+                                        let consigneeGroup = document.getElementById('consignee-group');
+                                        if (!consigneeGroup) {
+                                            consigneeGroup = document.createElement('div');
+                                            consigneeGroup.id = 'consignee-group';
+                                            consigneeGroup.classList.add('form-group');
+                                            document.getElementById('c_details').parentNode.insertBefore(consigneeGroup, document.getElementById('c_details'));
+                                        }
+                                        
+                                        // Clear the consignee group
+                                        consigneeGroup.innerHTML = '';
+                                        
+                                        // Create consignee dropdown
+                                        if (consignees.length > 0) {
+                                            const dropdownLabel = document.createElement('label');
+                                            dropdownLabel.textContent = 'Select Consignee Address';
+                                            dropdownLabel.setAttribute('for', 'consigneeDropdown');
+                                            consigneeGroup.appendChild(dropdownLabel);
+                                            
+                                            const consigneeDropdown = document.createElement('select');
+                                            consigneeDropdown.classList.add('form-control');
+                                            consigneeDropdown.id = 'consigneeDropdown';
+            
+                                            consignees.forEach(consignee => {
+                                                const consigneeOption = document.createElement('option');
+                                                consigneeOption.textContent = consignee.consignee_address;
+                                                consigneeOption.value = consignee.consignee_address;
+                                                consigneeOption.setAttribute('data-consignee-id', consignee.consignee_id);
+                                                consigneeDropdown.appendChild(consigneeOption);
+                                            });
+                                            
+                                            consigneeGroup.appendChild(consigneeDropdown);
+                                            consigneeGroup.style.display = 'block';
+                                            
+                                            // Update consignee field when a consignee is selected
+                                            consigneeDropdown.addEventListener('change', function () {
+                                                document.getElementById('c_details').value = consigneeDropdown.value;
+                                            });
+                                            
+                                            // Set the first consignee as default
+                                            if (consignees.length > 0) {
+                                                document.getElementById('c_details').value = consignees[0].consignee_address;
+                                            }
+                                        } else {
+                                            consigneeGroup.style.display = 'none';
+                                            document.getElementById('c_details').value = '';
                                         }
                                     } else {
                                         addressGroup.style.display = 'none';
                                         document.getElementById('b_address').value = '';
-                                    }
-                                    
-                                    // Set first consignee as default if available
-                                    if (consignees.length > 0) {
-                                        document.getElementById('c_details').value = consignees[0];
+                                        
+                                        const consigneeGroup = document.getElementById('consignee-group');
+                                        if (consigneeGroup) {
+                                            consigneeGroup.style.display = 'none';
+                                        }
+                                        document.getElementById('c_details').value = '';
                                     }
                                 }
                             });
@@ -335,7 +400,7 @@
             document.getElementById('invoiceForm').addEventListener('submit', function(event) {
                 const addressField = document.getElementById('b_address').value.toLowerCase();
                 const indianStates = [
-                "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh",
+                "andhra pradesh", "assam", "bihar", "chhattisgarh",
                 "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka",
                 "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
                 "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim",

@@ -8,7 +8,7 @@ DB_PARAMS = {
     "password": "J8hmHOaf84rCOCz7n3MvLjPTTUjp81Ps",
     "host": "dpg-cv9hi28fnakc739q7h50-a.singapore-postgres.render.com",
     "port": "5432",
-    "sslmode": "require"  # Required for external connections
+    "sslmode": "require"
 }
 
 def get_db():
@@ -17,7 +17,7 @@ def get_db():
     return conn, conn.cursor(cursor_factory=DictCursor)
 
 def view_db_structure():
-    """Fetches and prints the structure of all tables in the database."""
+    """Fetches and prints the structure and data of all tables in the database."""
     conn, cursor = get_db()
     
     try:
@@ -33,15 +33,27 @@ def view_db_structure():
             table_name = table["table_name"]
             print(f"\nTable: {table_name}")
             
-            cursor.execute(f"""
+            # Fetch table columns
+            cursor.execute("""
                 SELECT column_name, data_type, is_nullable, column_default
                 FROM information_schema.columns 
                 WHERE table_name = %s
             """, (table_name,))
             
             columns = cursor.fetchall()
+            print("Columns:")
             for col in columns:
                 print(f"  - {col['column_name']} ({col['data_type']}), Nullable: {col['is_nullable']}, Default: {col['column_default']}")
+            
+            # Fetch some sample data
+            cursor.execute(f"SELECT * FROM {table_name} LIMIT 5")
+            rows = cursor.fetchall()
+            if rows:
+                print("Sample Data:")
+                for row in rows:
+                    print(dict(row))
+            else:
+                print("No data available.")
     
     except Exception as e:
         print(f"❌ Error: {str(e)}")

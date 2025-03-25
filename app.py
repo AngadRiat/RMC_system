@@ -426,9 +426,10 @@ def view_invoices_new():
 @app.route('/first_page_new')
 @role_required('admin')
 def first_page_new():
-    # Get buyer_id and address_id from request arguments
+    # Get buyer_id, address_id, and consignee_id from request arguments
     buyer_id = request.args.get('buyer_id')
     address_id = request.args.get('address_id')
+    consignee_id = request.args.get('consignee_id')
     buyer_info = None
     selected_address = None
     buyer_addresses = []
@@ -455,15 +456,25 @@ def first_page_new():
         # Set the selected address if address_id is provided
         if address_id:
             cursor.execute("SELECT address FROM buyer_addresses WHERE address_id = %s", (address_id,))
-            selected_address = cursor.fetchone()
-            selected_address = selected_address['address'] if selected_address else None
+            selected_address_result = cursor.fetchone()
+            selected_address = selected_address_result['address'] if selected_address_result else None
 
         # Retrieve all associated consignee addresses for the buyer
-        cursor.execute("SELECT consignee_id, consignee_address FROM consignee_addresses WHERE buyer_id = %s", (buyer_id,))
+        cursor.execute("""
+            SELECT ca.consignee_id, ca.consignee_address 
+            FROM consignee_addresses ca
+            JOIN buyer_addresses ba ON ca.buyer_id = ba.buyer_id
+            WHERE ba.address_id = %s
+        """, (address_id,))
         consignee_addresses = [{'consignee_id': row['consignee_id'], 'consignee_address': row['consignee_address']} for row in cursor.fetchall()]
 
-        # Set the selected consignee address if only one exists
-        if len(consignee_addresses) == 1:
+        # Set the selected consignee address if consignee_id is provided
+        if consignee_id:
+            cursor.execute("SELECT consignee_address FROM consignee_addresses WHERE consignee_id = %s", (consignee_id,))
+            selected_consignee_result = cursor.fetchone()
+            selected_consignee_address = selected_consignee_result['consignee_address'] if selected_consignee_result else None
+        elif len(consignee_addresses) == 1:
+            # If only one consignee address exists and no specific ID is provided
             selected_consignee_address = consignee_addresses[0]['consignee_address']
 
     # Fetch the maximum invoice_id from the invoices table
@@ -1334,31 +1345,70 @@ def delete_address(address_id):
         conn = psycopg2.connect(**DB_PARAMS)
         cursor = conn.cursor()
 
-        # Delete all invoice items associated with invoices having this address_id
-        cursor.execute("DELETE FROM invoice_items WHERE invoice_id IN (SELECT invoice_id FROM invoices WHERE address_id = %s)", (address_id,))
+        # Start transaction
+        conn.autocommit = False
+
+        # 1. First check if the address exists and get buyer_id
+        cursor.execute("SELECT buyer_id FROM buyer_addresses WHERE address_id = %s", (address_id,))
+        address_record = cursor.fetchone()
         
-        # Delete all invoices associated with this address_id
+        if not address_record:
+            flash('Address not found', 'error')
+            return redirect(url_for('buyer_table_new'))
+            
+        buyer_id = address_record[0]
+
+        # 2. Check if this is the only address for this buyer
+        cursor.execute("SELECT COUNT(*) FROM buyer_addresses WHERE buyer_id = %s", (buyer_id,))
+        address_count = cursor.fetchone()[0]
+
+        if address_count == 1:
+            flash('Cannot delete the last address of a buyer. Delete the buyer instead.', 'error')
+            return redirect(url_for('buyer_table_new'))
+
+        # 3. Get all invoices that use this address
+        cursor.execute("SELECT invoice_id, consignee_id FROM invoices WHERE address_id = %s", (address_id,))
+        invoices = cursor.fetchall()
+        invoice_ids = [row[0] for row in invoices]
+        
+        # 4. Get unique consignee_ids from these invoices
+        consignee_ids = list(set(row[1] for row in invoices if row[1] is not None))
+
+        # 5. Delete invoice items for these invoices
+        if invoice_ids:
+            cursor.execute("DELETE FROM invoice_items WHERE invoice_id = ANY(%s)", (invoice_ids,))
+
+        # 6. Delete the invoices
         cursor.execute("DELETE FROM invoices WHERE address_id = %s", (address_id,))
-        
-        # Delete the address itself
+
+        # 7. Delete the address
         cursor.execute("DELETE FROM buyer_addresses WHERE address_id = %s", (address_id,))
 
-        # Commit the transaction
+        # 8. Check if any consignee addresses are now orphaned and delete them
+        for consignee_id in consignee_ids:
+            # Check if this consignee is used in any other invoices
+            cursor.execute("SELECT COUNT(*) FROM invoices WHERE consignee_id = %s", (consignee_id,))
+            if cursor.fetchone()[0] == 0:
+                # Not used anywhere else, safe to delete
+                cursor.execute("DELETE FROM consignee_addresses WHERE consignee_id = %s", (consignee_id,))
+
+        # Commit transaction
         conn.commit()
+
+        flash('Address and associated data deleted successfully', 'success')
+        return redirect(url_for('buyer_table_new'))
 
     except Exception as e:
         # Rollback transaction in case of error
         if conn:
             conn.rollback()
-        return f"Error deleting address: {e}", 500
+        flash(f'Error deleting address: {str(e)}', 'error')
+        return redirect(url_for('buyer_table_new'))
 
     finally:
         # Ensure connection is closed
         if conn:
             conn.close()
-
-    # Redirect back to the buyer table page after successful deletion
-    return redirect(url_for('buyer_table_new'))
 
 @app.route('/duplicate_invoice/<invoice_id>', methods=['GET'])
 @role_required('admin')
