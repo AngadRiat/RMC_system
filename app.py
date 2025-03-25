@@ -242,10 +242,6 @@ def pdf_generate_new(invoice_data):
     c.save()
     overlay_pdf_stream.seek(0)
     template_path = "data/Tax Invoice 2024 TEMPLATE.pdf"
-    x = invoice_data["invoice_no"]
-    y = x.split("/")
-    z = y[0] + "-" + y[1] + "-" + y[2]
-    output_path = "data/invoices/" + z + ".pdf"
     template_pdf = fitz.open(template_path)
     overlay_pdf = fitz.open("pdf", overlay_pdf_stream)
     
@@ -263,18 +259,18 @@ def pdf_generate_new(invoice_data):
         # Apply overlay content
         new_page.show_pdf_page(new_page.rect, overlay_pdf, page_index)
     
-    # Save and close PDFs
-    new_pdf.save(output_path)
+    # Save PDF to a BytesIO object instead of a file
+    pdf_data = BytesIO()
+    new_pdf.save(pdf_data)
+    pdf_data.seek(0)
+    
+    # Close PDFs
     template_pdf.close()
     overlay_pdf.close()
     new_pdf.close()
 
-    # Load the saved PDF for storing in the database as BLOB
-    with open(output_path, "rb") as f:
-        pdf_data = f.read()
-
-    # Return the binary data to be stored in the database
-    return pdf_data
+    # Return the binary data directly from the BytesIO object
+    return pdf_data.getvalue()
 
 
 # PAGE ROUTINGS
@@ -1254,7 +1250,6 @@ def check_buyer():
                     'addresses': address_list,
                     'consignees': consignee_list
                 })
-        print(buyers)
         return jsonify({'exists': bool(buyers), 'buyers': buyers})
 
     except Exception as e:
