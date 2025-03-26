@@ -118,7 +118,7 @@
                         <div class="form-group">
                             <label for="year">Financial Year</label>
                             <select class="form-control" id="year" name="year" required>
-                                {% for y in ['24 - 25', '23 - 24', '22 - 23', '21 - 22', '20 - 21', '19 - 20'] %}
+                                {% for y in ['25 - 26', '24 - 25', '23 - 24', '22 - 23', '21 - 22', '20 - 21', '19 - 20'] %}
                                     <option value="{{ y }}" {% if session.get('year') == y %} selected {% endif %}>{{ y }}</option>
                                 {% endfor %}
                             </select>

@@ -1,5 +1,6 @@
 import os
 import csv
+import tempfile
 import zipfile
 import psycopg2
 import pandas as pd
@@ -272,7 +273,6 @@ def pdf_generate_new(invoice_data):
     # Return the binary data directly from the BytesIO object
     return pdf_data.getvalue()
 
-
 # PAGE ROUTINGS
 
 # Authentication and Roles
@@ -474,7 +474,7 @@ def first_page_new():
             selected_consignee_address = consignee_addresses[0]['consignee_address']
 
     # Fetch the maximum invoice_id from the invoices table
-    cursor.execute("SELECT MAX(invoice_id) FROM invoices")
+    cursor.execute("SELECT MAX(invoice_id) FROM invoices WHERE invoice_id LIKE 'RMC / 25 - 26 / %'")
     last_invoice_id = cursor.fetchone()[0]
 
     # Extract the numeric part of the invoice_id and increment it
@@ -901,6 +901,16 @@ def generate_invoice_new(invoice_id):
         cur.execute('UPDATE invoices SET pdf_invoice = %s WHERE invoice_id = %s', (psycopg2.Binary(pdf_data), invoice_id))
         conn.commit()
 
+        # Create filename based on invoice number
+        x = invoice_data["invoice_no"]
+        y = x.split("/") 
+        z = y[0] + "-" + y[1] + "-" + y[2] + ".pdf"
+
+        # Create a temporary file to store the PDF
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_pdf.write(pdf_data)
+        temp_pdf.close()
+
         # Retain user_id and role in session, clear other session data
         user_id = session.get("user_id")
         role = session.get("role")
@@ -909,11 +919,55 @@ def generate_invoice_new(invoice_id):
         session["user_id"] = user_id
         session["role"] = role
         session["user_name"] = user_name
+        
+        # Store temporary file path in session
+        session['pdf_temp_file'] = temp_pdf.name
 
-        return render_template('invoice_submitted_new.html', invoice_no=invoice_data["invoice_no"])
+        # Render the submission page and provide download link
+        return render_template('invoice_submitted_new.html', 
+                               invoice_no=invoice_data["invoice_no"], 
+                               pdf_filename=z)
 
     except Exception as e:
         conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+        
+@app.route('/download_invoice/<invoice_id>', methods=['GET'])
+@role_required('admin')
+def download_invoice(invoice_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    try:
+        # Decode the invoice_id
+        decoded_invoice_id = invoice_id.replace('-', '/')
+        invoice_id = replace_slash_with_hyphen(decoded_invoice_id)
+
+        # Fetch the PDF from the database
+        cur.execute('SELECT pdf_invoice FROM invoices WHERE invoice_id = %s', (invoice_id,))
+        result = cur.fetchone()
+
+        if not result or result['pdf_invoice'] is None:
+            return "Invoice PDF not found", 404
+
+        # Create filename based on invoice number
+        x = invoice_id
+        y = x.split("/") 
+        z = y[0] + "-" + y[1] + "-" + y[2] + ".pdf"
+
+        # Send the PDF as a downloadable file
+        return send_file(
+            io.BytesIO(result['pdf_invoice']),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=z
+        )
+
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
     finally:
@@ -1044,6 +1098,7 @@ def edit_invoice_new(invoice_id):
 
     conn.close()
     invoice_date_str = invoice['invoice_date'].strftime('%Y-%m-%d') if invoice['invoice_date'] else ''
+    print(invoice)
     return render_template('edit_invoice_new.html', invoice=invoice, invoice_items=invoice_items, format_indian_currency=format_indian_currency, invoice_date_str=invoice_date_str)
 
 @app.route('/view_pdf_new/<invoice_id>')
@@ -1440,7 +1495,7 @@ def duplicate_invoice(invoice_id):
     invoice_items = cursor.fetchall()
 
     # Fetch the next invoice number for the current financial year
-    cursor.execute("SELECT MAX(invoice_id) FROM invoices WHERE invoice_id LIKE 'RMC / 24 - 25 / %'")
+    cursor.execute("SELECT MAX(invoice_id) FROM invoices WHERE invoice_id LIKE 'RMC / 25 - 26 / %'")
     last_invoice_id = cursor.fetchone()[0]
 
     if last_invoice_id:
@@ -1456,7 +1511,7 @@ def duplicate_invoice(invoice_id):
     conn.close()
 
     # Financial year options
-    financial_years = ['20 - 21', '21 - 22', '22 - 23', '23 - 24', '24 - 25']
+    financial_years = ['20 - 21', '21 - 22', '22 - 23', '23 - 24', '24 - 25', '25 - 26']
 
     # Calculate total price and final amount for the original invoice
     total_price = sum(item['price'] for item in invoice_items)

@@ -4,65 +4,163 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice Submitted</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
-        /* General styles for the page */
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --background-color: #f4f4f9;
+            --white: #ffffff;
+            --text-color: #333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            background-color: var(--background-color);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f4f4f9;
+            min-height: 100vh;
+            line-height: 1.6;
+            color: var(--text-color);
         }
 
-        /* Container for centering and padding */
         .container {
+            background-color: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 40px;
             text-align: center;
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            width: 90%;
-            max-width: 500px;
+            max-width: 550px;
+            width: 95%;
+            animation: fadeIn 0.5s ease-out;
         }
 
-        /* Heading style */
-        h2 {
-            color: #333;
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-icon {
+            color: #28a745;
+            font-size: 4rem;
             margin-bottom: 20px;
+            animation: bounce 1s ease infinite;
         }
 
-        /* Button styles */
-        .button {
-            display: inline-block;
-            margin: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .invoice-number {
+            color: var(--primary-color);
             font-weight: bold;
-            text-align: center;
-            color: #ffffff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 5px;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
-            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
         }
 
-        /* Button hover effect */
-        .button:hover {
-            background-color: #0056b3;
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            gap: 8px;
+            min-width: 140px;
+        }
+
+        .button i {
+            margin-right: 8px;
+        }
+
+        .button-primary {
+            background-color: var(--primary-color);
+            color: var(--white);
+            border: 2px solid var(--primary-color);
+        }
+
+        .button-primary:hover {
+            background-color: darken(var(--primary-color), 10%);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+        }
+
+        .button-secondary {
+            background-color: var(--secondary-color);
+            color: var(--white);
+            border: 2px solid var(--secondary-color);
+        }
+
+        .button-secondary:hover {
+            background-color: darken(var(--secondary-color), 10%);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                width: 90%;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .button {
+                width: 100%;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Invoice No {{ invoice_no }} has been generated and saved.</h2>
-        <a href="{{ url_for('home_page_new') }}" class="button">Back to Home Page</a>
-        <a href="{{ url_for('view_invoices_new') }}" class="button">View Invoices</a>
-        <a href="{{ url_for('view_pdf_new', invoice_id=invoice_no.replace('/', '-')) }}" class="button" target="_blank">Open PDF</a>
-        <a href="{{ url_for('logout') }}" class="button">Logout</a>
+        <i class="fas fa-check-circle success-icon"></i>
+        <h2>Invoice Submitted Successfully</h2>
+        <div class="invoice-number">Invoice No: {{ invoice_no }}</div>
+        
+        <div class="button-group">
+            <a href="{{ url_for('home_page_new') }}" class="button button-primary">
+                <i class="fas fa-home"></i>Home Page
+            </a>
+            <a href="{{ url_for('view_invoices_new') }}" class="button button-secondary">
+                <i class="fas fa-file-invoice"></i>View Invoices
+            </a>
+            <a href="{{ url_for('download_invoice', invoice_id=invoice_no.replace('/', '-')) }}" class="button button-primary">
+                <i class="fas fa-download"></i>Download PDF
+            </a>
+            <a href="{{ url_for('view_pdf_new', invoice_id=invoice_no.replace('/', '-')) }}" 
+               class="button button-secondary" target="_blank">
+                <i class="fas fa-eye"></i>Open PDF
+            </a>
+            <a href="{{ url_for('logout') }}" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i>Logout
+            </a>
+        </div>
     </div>
 </body>
 </html>

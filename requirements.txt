@@ -6,5 +6,5 @@ pymupdf==1.23.26
 reportlab==4.1.0
 num2words==0.5.13
 werkzeug==3.0.1
+tempfile
 gunicorn
-# or another stable version
