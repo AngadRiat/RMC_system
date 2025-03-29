@@ -84,11 +84,21 @@ def extract_state_from_address(address):
 
     return None
 
-# Invoice replacing "/" with "-" in the middle
 def replace_slash_with_hyphen(invoice_id):
     # Split the string by '/'
     parts = invoice_id.split('/')
-    return (parts[0]+"/"+parts[1]+"-"+parts[2]+"/"+parts[3])
+    
+    # Check if we have enough parts
+    if len(parts) < 4:
+        # If not enough parts, assume the current format with spaces
+        parts = invoice_id.replace(' - ', '/').split('/')
+    
+    # If still not enough parts, return original
+    if len(parts) < 4:
+        return invoice_id
+    
+    # Construct the modified invoice ID
+    return f"{parts[0]}/{parts[1]}-{parts[2]}/{parts[3]}" # changed
 
 # Function to connect to the database
 def get_db_connection():
@@ -184,29 +194,30 @@ def pdf_generate_new(invoice_data):
     # List of tick mark positions for each page (replace with desired coordinates for each page)
     tick_positions = [(408, 822), (408, 806), (408, 791)]  # Example coordinates
 
+    # Iterate through each page in tick_positions
     for position in tick_positions:
         # Draw tick mark at specified position for this page
         c.drawString(position[0], position[1], "✓")
         
-        # Draw other fixed details on each page
+        # Draw invoice details
         draw_wrapped_text(c, 310, 765, invoice_data["invoice_no"], box_width=120, default_box_height=20, max_box_height=20)
         draw_wrapped_text(c, 310, 750, invoice_data["invoice_date"], box_width=100, default_box_height=20, max_box_height=20)
-        if invoice_data["po_no_date"]!=None:
+        if invoice_data.get("po_no_date"):
             draw_wrapped_text(c, 475, 765, invoice_data["po_no_date"], box_width=100, default_box_height=35, max_box_height=35)
-        if invoice_data["dispatched_by"]!=None:
+        if invoice_data.get("dispatched_by"):
             draw_wrapped_text(c, 360, 705, invoice_data["dispatched_by"], box_width=150, default_box_height=30, max_box_height=30)
         draw_wrapped_text(c, 35, 655, invoice_data["buyer_details"], box_width=250, default_box_height=58, max_box_height=58)
         draw_wrapped_text(c, 305, 655, invoice_data["consignee_details"], box_width=265, default_box_height=58, max_box_height=58)
 
         # Calculate max height for description textbox based on number of items
         total_column_height = 270  # Set this according to available space
-        num_items = len(invoice_data["goods"])
+        num_items = len(invoice_data.get("goods", []))
         max_description_height = total_column_height * (0.9 if num_items == 1 else 0.45) if num_items <= 2 else total_column_height / num_items
         default_description_height = 40
 
         # Loop through each item in the goods list
         y_position = 560
-        for i, item in enumerate(invoice_data["goods"], start=1):
+        for i, item in enumerate(invoice_data.get("goods", []), start=1):
             draw_centered_text(c, 17, y_position, str(i), box_width=40, box_height=20)
             
             # Dynamically calculate the height needed for each description and adjust y_position for the next item
@@ -226,20 +237,24 @@ def pdf_generate_new(invoice_data):
 
         # Draw totals and other fields
         draw_centered_text(c, 475, 304, invoice_data["total_amount"], box_width=105, box_height=20)
-        if invoice_data["buyer_state"] != "west bengal":
-            draw_centered_text(c, 421, 233, invoice_data["igst"], box_width=25, box_height=20)
-            draw_centered_text(c, 475, 233, invoice_data["igst_amount"], box_width=105, box_height=20)
+        
+        # Check buyer state for tax calculations
+        buyer_state = invoice_data.get("buyer_state", "").lower()
+        if buyer_state != "west bengal":
+            draw_centered_text(c, 421, 233, invoice_data.get("igst", ""), box_width=25, box_height=20)
+            draw_centered_text(c, 475, 233, invoice_data.get("igst_amount", ""), box_width=105, box_height=20)
         else:
-            draw_centered_text(c, 423, 278, invoice_data["sgst"], box_width=25, box_height=20)
-            draw_centered_text(c, 477, 278, invoice_data["sgst_amount"], box_width=105, box_height=20)
-            draw_centered_text(c, 423, 258, invoice_data["cgst"], box_width=25, box_height=20)
-            draw_centered_text(c, 477, 258, invoice_data["cgst_amount"], box_width=105, box_height=20)
+            draw_centered_text(c, 423, 278, invoice_data.get("sgst", ""), box_width=25, box_height=20)
+            draw_centered_text(c, 477, 278, invoice_data.get("sgst_amount", ""), box_width=105, box_height=20)
+            draw_centered_text(c, 423, 258, invoice_data.get("cgst", ""), box_width=25, box_height=20)
+            draw_centered_text(c, 477, 258, invoice_data.get("cgst_amount", ""), box_width=105, box_height=20)
+        
         draw_centered_text(c, 475, 193, invoice_data["grand_total"], box_width=105, box_height=20)
         draw_wrapped_text(c, 40, 193, invoice_data["amount_in_words"], box_width=300, default_box_height=38, max_box_height=38)
-
-        # Finalize and add this page
-        c.showPage()
         
+        c.showPage()
+    
+    # Save the entire PDF
     c.save()
     overlay_pdf_stream.seek(0)
     template_path = "data/Tax Invoice 2024 TEMPLATE.pdf"
@@ -802,18 +817,23 @@ def generate_invoice_new(invoice_id):
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)  # DictCursor allows accessing columns by name
     
     try:
-        # Decode the invoice_id
+        # Decode the invoice_id (replace URL-encoded hyphens with slashes)
         decoded_invoice_id = invoice_id.replace('-', '/')
-        invoice_id = replace_slash_with_hyphen(decoded_invoice_id)
+
+        # Transform invoice ID to standard format
+        transformed_invoice_id = replace_slash_with_hyphen(decoded_invoice_id)
 
         # Fetch invoice, item data, buyer, and address data
-        cur.execute('SELECT * FROM invoices WHERE invoice_id = %s', (invoice_id,))
+        cur.execute('SELECT * FROM invoices WHERE invoice_id = %s', (transformed_invoice_id,))
         invoice = cur.fetchone()
 
-        cur.execute('SELECT * FROM invoice_items WHERE invoice_id = %s', (invoice_id,))
-        items = cur.fetchall()
+        # If no invoice found, return 404
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
+
+        # Fetch invoice items
+        cur.execute('SELECT * FROM invoice_items WHERE invoice_id = %s', (transformed_invoice_id,))
+        items = cur.fetchall()
 
         # Get buyer_id from the invoice
         cur.execute('SELECT * FROM buyer_info WHERE buyer_id = %s', (invoice["buyer_id"],))
@@ -826,6 +846,7 @@ def generate_invoice_new(invoice_id):
         cur.execute('SELECT * FROM consignee_addresses WHERE consignee_id = %s', (invoice["consignee_id"],))
         consignee_address = cur.fetchone()
 
+        # Validate buyer and consignee details
         if not buyer_info or not buyer_address or not consignee_address:
             return jsonify({"error": "Buyer or consignee details not found"}), 404
 
@@ -846,7 +867,7 @@ def generate_invoice_new(invoice_id):
                 "dispatched_by": invoice["dispatch"],
                 "buyer_details": f"{buyer_info['buyer_name']}\n{buyer_address['address']}\nGSTIN {buyer_info['buyer_gst']}",
                 "buyer_state": buyer_state,
-                "consignee_details": consignee_address["consignee_address"],  # Use consignee address from the table
+                "consignee_details": consignee_address["consignee_address"],
                 "goods": [
                     {
                         "description": item["description"],
@@ -876,7 +897,7 @@ def generate_invoice_new(invoice_id):
                 "dispatched_by": invoice["dispatch"],
                 "buyer_details": f"{buyer_info['buyer_name']}\n{buyer_address['address']}\nGSTIN {buyer_info['buyer_gst']}",
                 "buyer_state": buyer_state,
-                "consignee_details": consignee_address["consignee_address"],  # Use consignee address from the table
+                "consignee_details": consignee_address["consignee_address"],
                 "goods": [
                     {
                         "description": item["description"],
@@ -898,7 +919,7 @@ def generate_invoice_new(invoice_id):
         pdf_data = pdf_generate_new(invoice_data)
 
         # Store PDF as BYTEA in PostgreSQL
-        cur.execute('UPDATE invoices SET pdf_invoice = %s WHERE invoice_id = %s', (psycopg2.Binary(pdf_data), invoice_id))
+        cur.execute('UPDATE invoices SET pdf_invoice = %s WHERE invoice_id = %s', (psycopg2.Binary(pdf_data), transformed_invoice_id))
         conn.commit()
 
         # Create filename based on invoice number
@@ -929,9 +950,12 @@ def generate_invoice_new(invoice_id):
                                pdf_filename=z)
 
     except Exception as e:
+        print(f"Error in generate_invoice_new: {e}")
+        # Print full traceback
+        import traceback
+        traceback.print_exc()
         conn.rollback()
         return jsonify({"error": str(e)}), 500
-
     finally:
         cur.close()
         conn.close()
@@ -1098,7 +1122,6 @@ def edit_invoice_new(invoice_id):
 
     conn.close()
     invoice_date_str = invoice['invoice_date'].strftime('%Y-%m-%d') if invoice['invoice_date'] else ''
-    print(invoice)
     return render_template('edit_invoice_new.html', invoice=invoice, invoice_items=invoice_items, format_indian_currency=format_indian_currency, invoice_date_str=invoice_date_str)
 
 @app.route('/view_pdf_new/<invoice_id>')
@@ -1386,9 +1409,9 @@ def export_invoices_csv():
                     headers={"Content-Disposition": "attachment; filename=invoices.zip"})
 
     
-@app.route('/delete_address/<int:address_id>', methods=['POST'])
+@app.route('/delete_consignee_address/<int:consignee_id>', methods=['POST'])
 @role_required('admin')
-def delete_address(address_id):
+def delete_consignee_address(consignee_id):
     conn = None
     try:
         # Connect to PostgreSQL
@@ -1398,61 +1421,49 @@ def delete_address(address_id):
         # Start transaction
         conn.autocommit = False
 
-        # 1. First check if the address exists and get buyer_id
-        cursor.execute("SELECT buyer_id FROM buyer_addresses WHERE address_id = %s", (address_id,))
-        address_record = cursor.fetchone()
+        # 1. Check if the consignee address exists
+        cursor.execute("SELECT consignee_address, buyer_id FROM consignee_addresses WHERE consignee_id = %s", (consignee_id,))
+        consignee_record = cursor.fetchone()
         
-        if not address_record:
-            flash('Address not found', 'error')
+        if not consignee_record:
+            flash('Consignee address not found', 'error')
             return redirect(url_for('buyer_table_new'))
-            
-        buyer_id = address_record[0]
 
-        # 2. Check if this is the only address for this buyer
-        cursor.execute("SELECT COUNT(*) FROM buyer_addresses WHERE buyer_id = %s", (buyer_id,))
+        consignee_address, buyer_id = consignee_record
+
+        # 2. Check how many consignee addresses exist for this buyer
+        cursor.execute("SELECT COUNT(*) FROM consignee_addresses WHERE buyer_id = %s", (buyer_id,))
         address_count = cursor.fetchone()[0]
 
-        if address_count == 1:
-            flash('Cannot delete the last address of a buyer. Delete the buyer instead.', 'error')
+        if address_count <= 1:
+            flash('Cannot delete the last consignee address for this buyer', 'error')
             return redirect(url_for('buyer_table_new'))
 
-        # 3. Get all invoices that use this address
-        cursor.execute("SELECT invoice_id, consignee_id FROM invoices WHERE address_id = %s", (address_id,))
-        invoices = cursor.fetchall()
-        invoice_ids = [row[0] for row in invoices]
+        # 3. Get all invoices that use this consignee address
+        cursor.execute("SELECT invoice_id FROM invoices WHERE consignee_id = %s", (consignee_id,))
+        invoice_ids = [row[0] for row in cursor.fetchall()]
         
-        # 4. Get unique consignee_ids from these invoices
-        consignee_ids = list(set(row[1] for row in invoices if row[1] is not None))
-
-        # 5. Delete invoice items for these invoices
+        # 4. Delete invoice items for these invoices
         if invoice_ids:
             cursor.execute("DELETE FROM invoice_items WHERE invoice_id = ANY(%s)", (invoice_ids,))
 
-        # 6. Delete the invoices
-        cursor.execute("DELETE FROM invoices WHERE address_id = %s", (address_id,))
+        # 5. Delete the invoices
+        cursor.execute("DELETE FROM invoices WHERE consignee_id = %s", (consignee_id,))
 
-        # 7. Delete the address
-        cursor.execute("DELETE FROM buyer_addresses WHERE address_id = %s", (address_id,))
-
-        # 8. Check if any consignee addresses are now orphaned and delete them
-        for consignee_id in consignee_ids:
-            # Check if this consignee is used in any other invoices
-            cursor.execute("SELECT COUNT(*) FROM invoices WHERE consignee_id = %s", (consignee_id,))
-            if cursor.fetchone()[0] == 0:
-                # Not used anywhere else, safe to delete
-                cursor.execute("DELETE FROM consignee_addresses WHERE consignee_id = %s", (consignee_id,))
+        # 6. Delete the consignee address
+        cursor.execute("DELETE FROM consignee_addresses WHERE consignee_id = %s", (consignee_id,))
 
         # Commit transaction
         conn.commit()
 
-        flash('Address and associated data deleted successfully', 'success')
+        flash('Consignee address and associated data deleted successfully', 'success')
         return redirect(url_for('buyer_table_new'))
 
     except Exception as e:
         # Rollback transaction in case of error
         if conn:
             conn.rollback()
-        flash(f'Error deleting address: {str(e)}', 'error')
+        flash(f'Error deleting consignee address: {str(e)}', 'error')
         return redirect(url_for('buyer_table_new'))
 
     finally:

@@ -1,15 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duplicate Invoice</title>
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Your existing CSS styles */
-    </style>
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Duplicate Invoice</title>
+        <!-- Bootstrap 5 CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            /* Modern Design Enhancements */
+            body {
+                background-color: #f4f6f9;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                color: #333;
+            }
+    
+            .container {
+                background-color: white;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+                padding: 2rem;
+                margin-top: 2rem;
+                max-width: 900px;
+            }
+    
+            h2 {
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+                font-weight: 600;
+            }
+    
+            .form-group {
+                margin-bottom: 1rem;
+            }
+    
+            .form-control {
+                border-radius: 6px;
+                border-color: #ddd;
+                transition: all 0.3s ease;
+            }
+    
+            .form-control:focus {
+                border-color: #3498db;
+                box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            }
+    
+            .table {
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 3px rgba(0, 0, 0, 0.05);
+            }
+    
+            .table thead {
+                background-color: #f8f9fa;
+                border-bottom: 2px solid #e9ecef;
+            }
+    
+            .table th {
+                color: #495057;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 0.9rem;
+            }
+    
+            textarea.form-control {
+                resize: vertical;
+                min-height: 100px;
+            }
+    
+            .btn-primary {
+                background-color: #3498db;
+                border-color: #3498db;
+                border-radius: 6px;
+                padding: 10px 20px;
+                transition: all 0.3s ease;
+            }
+    
+            .btn-primary:hover {
+                background-color: #2980b9;
+                border-color: #2980b9;
+            }
+    
+            .btn-danger {
+                border-radius: 6px;
+            }
+    
+            .total-section {
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+            }
+    
+            #itemDropdown {
+                border-radius: 6px;
+            }
+    
+            /* Responsive Adjustments */
+            @media (max-width: 768px) {
+                .container {
+                    padding: 1rem;
+                    margin-top: 0;
+                }
+    
+                .row > div {
+                    margin-bottom: 1rem;
+                }
+            }
+        </style>
+    </head>
 <body>
     <div class="container">
         <h2>Duplicate Invoice: {{ original_invoice.invoice_id }}</h2>
@@ -21,7 +121,7 @@
                         <label for="financial_year">Financial Year:</label>
                         <select class="form-control" id="financial_year" name="financial_year" required>
                             {% for year in financial_years %}
-                                <option value="{{ year }}" {% if year == '24 - 25' %}selected{% endif %}>{{ year }}</option>
+                                <option value="{{ year }}" {% if year == '25 - 26' %}selected{% endif %}>{{ year }}</option>
                             {% endfor %}
                         </select>
                     </div>

@@ -232,9 +232,12 @@
                             <input type="hidden" name="consignee_id" value="{{ buyer.consignee_id[i] }}">
                             <button type="submit" class="mobile-make-invoice-btn">Make Invoice</button>
                         </form>
-                        <form action="{{ url_for('delete_address', address_id=buyer.address_id[i]) }}" method="POST" 
-                              onsubmit="return confirm('Are you sure you want to delete this address and all associated invoices?');">
-                            <button type="submit" class="mobile-delete-address-btn">Delete Address</button>
+                        <form action="{{ url_for('delete_consignee_address', consignee_id=buyer.consignee_id[i]) }}" method="POST" 
+                            style="display:inline;" 
+                            onsubmit="return confirm('Are you sure you want to delete this consignee address and all associated invoices?');">
+                            <button type="submit" class="btn btn-danger">
+                                Delete Consignee Address
+                            </button>
                         </form>
                         {% if i == 0 %}
                         <form action="{{ url_for('delete_buyer_new', buyer_id=buyer_id) }}" method="POST" 
@@ -279,8 +282,12 @@
                             <input type="hidden" name="consignee_id" value="{{ buyer.consignee_id[0] }}">
                             <button type="submit" class="btn btn-primary" style="margin-bottom: 10px;">Make Invoice</button>
                         </form>
-                        <form action="{{ url_for('delete_address', address_id=buyer.address_id[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this address and all associated invoices?');">
-                            <button type="submit" class="btn btn-danger">Delete Address</button>
+                        <form action="{{ url_for('delete_consignee_address', consignee_id=buyer.consignee_id[0]) }}" method="POST" 
+                            style="display:inline;" 
+                            onsubmit="return confirm('Are you sure you want to delete this consignee address and all associated invoices?');">
+                            <button type="submit" class="btn btn-danger">
+                                Delete Consignee Address
+                            </button>
                         </form>
                         {% else %}
                         <button disabled style="background-color: #ccc; cursor: not-allowed;" style="margin-bottom: 10px;">Make Invoice (Admin Only)</button>
@@ -309,11 +316,12 @@
                             <input type="hidden" name="consignee_id" value="{{ buyer.consignee_id[i] }}">
                             <button type="submit" class="btn btn-primary" style="margin-bottom: 10px;">Make Invoice</button>
                         </form>
-                        <form action="{{ url_for('delete_address', address_id=buyer.address_id[i]) }}" method="POST" style="display:inline;" 
-                        onsubmit="return confirm('Are you sure you want to delete this address and all associated invoices?');">
-                        <button type="submit" class="btn btn-danger">
-                            Delete Address
-                        </button>
+                        <form action="{{ url_for('delete_consignee_address', consignee_id=buyer.consignee_id[i]) }}" method="POST" 
+                            style="display:inline;" 
+                            onsubmit="return confirm('Are you sure you want to delete this consignee address and all associated invoices?');">
+                            <button type="submit" class="btn btn-danger">
+                                Delete Consignee Address
+                            </button>
                         </form>
                         {% else %}
                         <button disabled style="background-color: #ccc; cursor: not-allowed;" style="margin-bottom: 10px;">Make Invoice (Admin Only)</button>
